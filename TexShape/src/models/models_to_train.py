@@ -2,38 +2,13 @@ import torch.nn as nn
 import torch
 from abc import ABC, abstractmethod
 
-class MIModel(nn.Module):
-    def __init__(self, input_sizes, hidden_sizes, output_size):
-        super(MIModel, self).__init__()
-        self.input_sizes = input_sizes
-        self.hidden_sizes = hidden_sizes
-        self.output_size = output_size
-        
-        layers = []
-        prev_size = sum(input_sizes)
-        
-        for size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, size))
-            layers.append(nn.ReLU())
-            prev_size = size
-        
-        layers.append(nn.Linear(prev_size, output_size))
-        
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, *inputs):
-        inputs = [x.float().view(x.size(0), -1) for x in inputs]
-        cat = torch.cat(inputs, 1)
-        return self.layers(cat)
-
-
 # Encoder class
 class Encoder(nn.Module, ABC):
     def __init__(self):
         super().__init__()
-        self.in_size = None
-        self.out_size = None
-        self.hidden_sizes = None
+        self.in_dim = None
+        self.out_dim = None
+        self.hidden_dims = None
 
     @abstractmethod
     def forward(self, x: torch.Tensor):
@@ -53,6 +28,32 @@ class Encoder(nn.Module, ABC):
     @abstractmethod
     def hidden_sizes(self):
         raise NotImplementedError
+
+class MIModel(nn.Module):
+    def __init__(self, in_dim, hidden_dims, out_dim):
+        super(MIModel, self).__init__()
+        self.input_sizes = in_dim
+        self.hidden_sizes = hidden_dims
+        self.output_size = out_dim
+        
+        layers = []
+        prev_size = sum(in_dim)
+        
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(prev_size, hidden_dim))
+            layers.append(nn.ReLU())
+            prev_size = hidden_dim
+        
+        layers.append(nn.Linear(prev_size, out_dim))
+        
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, *inputs):
+        inputs = [x.float().view(x.size(0), -1) for x in inputs]
+        cat = torch.cat(inputs, 1)
+        return self.layers(cat)
+
+
     
 class DenseEncoder(Encoder):
     # This is the function that its parameters are optimized for encoding
@@ -77,20 +78,20 @@ class DenseEncoder(Encoder):
         return x
     
 class DenseEncoder2(Encoder):
-    def __init__(self, in_dim, hidden_sizes, out_size):
+    def __init__(self, in_dim, hidden_dims, out_dim):
         super(DenseEncoder2, self).__init__()
-        self.in_size = in_dim
-        self.out_size = out_size
+        self.in_dim = in_dim
+        self.out_dim = out_dim
 
         layers = []
         prev_size = in_dim
 
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, hidden_size))
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(prev_size, hidden_dim))
             layers.append(nn.ReLU())
-            prev_size = hidden_size
+            prev_size = hidden_dim
 
-        layers.append(nn.Linear(prev_size, out_size))
+        layers.append(nn.Linear(prev_size, out_dim))
         # layers.append(nn.Tanh())
 
         self.main = nn.Sequential(*layers)

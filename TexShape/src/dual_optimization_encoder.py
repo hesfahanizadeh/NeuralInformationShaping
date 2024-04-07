@@ -31,7 +31,7 @@ class DualOptimizationEncoder(nn.Module):
         self.private_labels: torch.Tensor = private_labels
 
         self.experiment_params: ExperimentParams = experiment_params
-        self.mine_params: MINE_Params = experiment_params.mine_args
+        self.mine_params: MINE_Params = experiment_params.mine_params
         self.encoder_params: EncoderParams = experiment_params.encoder_params
         self.beta: float = experiment_params.beta
         # Define the device

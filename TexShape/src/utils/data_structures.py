@@ -28,7 +28,7 @@ class ExperimentParams:
     dataset_name: str
     # TODO: Use ENUM or dict
     experiment_type: str  # "utility+privacy"
-    mine_args: MINE_Params
+    mine_params: MINE_Params
     encoder_params: EncoderParams
     experiment_date: str
     

@@ -1,11 +1,11 @@
 experiment:
-  dataset_name: sst2  # Default dataset name
-  experiment_type: "utility+privacy"
+  dataset_name: sst2  # Default dataset name 
+  experiment_type: "utility+privacy" # choices=["utility", "utility+privacy", "compression", "compression+filtering"]
   mine_params:
-    utility_stats_network_model_name: "model_name"
-    utility_stats_network_model_params: {}
-    privacy_stats_network_model_name: "model_name"
-    privacy_stats_network_model_params: {}
+    utility_stats_network_model_name: "MIModel"
+    utility_stats_network_model_params: {in_dim: 768}
+    privacy_stats_network_model_name: "MIModel"
+    privacy_stats_network_model_params: {in_dim: 768}
     use_prev_epochs_mi_model: true
     mine_batch_size: -1
     mine_epochs_privacy: 2000
@@ -13,11 +13,11 @@ experiment:
     utility_stats_network_model_path: null
     privacy_stats_network_model_path: null
   encoder_params:
-    encoder_model_name: "encoder_name"
-    encoder_model_params: {}
+    encoder_model_name: "DenseEncoder2"
+    encoder_model_params: {in_dim: 768, hidden_dims: [512, 256], out_dim: 128}
     num_enc_epochs: 10
     enc_save_dir_path: null
   experiment_date: "2022-01-01"
   beta: 0.2
-  combination_type: "premise_only"
+  combination_type: "premise_only" # choices = ["concat", "join", "premise_only"]
 

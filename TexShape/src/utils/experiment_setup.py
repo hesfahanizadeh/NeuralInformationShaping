@@ -7,7 +7,7 @@ def get_experiment_params(config: DictConfig) -> ExperimentParams:
     experiment_params = ExperimentParams(
         dataset_name=config.experiment.dataset_name,
         experiment_type=config.experiment.experiment_type,
-        mine_args=mine_params,
+        mine_params=mine_params,
         encoder_params=encoder_params,
         experiment_date=config.experiment.experiment_date,
         beta=config.experiment.beta,
@@ -37,12 +37,6 @@ def get_experiment_params(config: DictConfig) -> ExperimentParams:
 #         "--encoder_hidden_sizes",
 #         type=lambda y: list(map(lambda x: int(x), y.split())),
 #         default=[512, 256, 128],
-#     )
-#     parser.add_argument(
-#         "--combination_type",
-#         type=str,
-#         default="premise_only",
-#         choices=["concat", "join", "premise_only"],
 #     )
 
 #     return parser.parse_args()
