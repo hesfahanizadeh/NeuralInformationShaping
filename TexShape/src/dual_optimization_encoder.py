@@ -142,10 +142,10 @@ class DualOptimizationEncoder(nn.Module):
 
         # Define dataloaders for MINE
         z_train_loader_utility_detached = DataLoader(
-            z_train_utility_detached, self.mine_batch_size, shuffle=True
+            z_train_utility_detached, self.mine_params.mine_batch_size, shuffle=True
         )
         z_train_loader_privacy_detached = DataLoader(
-            z_train_privacy_detached, self.mine_batch_size, shuffle=True
+            z_train_privacy_detached, self.mine_params.mine_batch_size, shuffle=True
         )
 
         # TODO: Fix this part

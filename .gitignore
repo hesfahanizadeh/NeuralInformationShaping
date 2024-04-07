@@ -89,6 +89,7 @@ TexShape/data/
 # Mypy cache
 .mypy_cache/
 
+TexShape/outputs/
 trial*
 lempel_ziv
 lightning_logs
