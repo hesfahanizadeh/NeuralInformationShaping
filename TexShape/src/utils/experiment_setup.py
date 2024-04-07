@@ -1,4 +1,4 @@
-from utils.data_structures import ExperimentParams, MINE_Params, EncoderParams
+from .data_structures import ExperimentParams, MINE_Params, EncoderParams
 import argparse
 import datetime
 
@@ -11,13 +11,12 @@ def parse_args() -> argparse.Namespace:
         default="utility+privacy",
         choices=["utility", "utility+privacy", "compression", "compression+filtering"],
     )
-    parser.add_argument("--save_enc_weights", action="store_true")
     parser.add_argument("--num_enc_epochs", type=int, default=10)
     parser.add_argument("--mine_batch_size", type=int, default=-1)
     parser.add_argument("--mine_epochs_privacy", type=int, default=2000)
     parser.add_argument("--mine_epochs_utility", type=int, default=2000)
     parser.add_argument("--beta", type=float, default=0.2)
-    parser.add_argument("--use_mi_strategy", action="store_true")
+    parser.add_argument("--use_prev_epochs_mi_model", action="store_true")
     parser.add_argument(
         "--dataset", type=str, default="sst2", choices=["sst2", "mnli", "corona"]
     )
@@ -39,7 +38,6 @@ def parse_args() -> argparse.Namespace:
 def get_experiment_params(args: argparse.Namespace) -> ExperimentParams:
     # Constants
     experiment_type = args.experiment_type
-    save_enc_weights = args.save_enc_weights
     num_enc_epochs = args.num_enc_epochs
     mine_batch_size = args.mine_batch_size
     mine_epochs_privacy = args.mine_epochs_privacy
@@ -51,22 +49,22 @@ def get_experiment_params(args: argparse.Namespace) -> ExperimentParams:
     combination_type = args.combination_type
 
     mine_params = MINE_Params(
-        mine_batch_size=mine_batch_size,
-        mine_epochs_privacy=mine_epochs_privacy,
-        mine_epochs_utility=mine_epochs_utility,
-        use_prev_epochs_mi_model=use_prev_epochs_mi_model,
         utility_stats_network_model_name="FeedForwardMI",
         utility_stats_network_model_params={"input_size": 128, "output_size": 768},
         privacy_stats_network_model_name="FeedForwardMI3",
         privacy_stats_network_model_params={"input_size": 128},
-        utility_stats_network_path=None,
-        privacy_stats_network_path=None,
+        mine_batch_size=mine_batch_size,
+        mine_epochs_privacy=mine_epochs_privacy,
+        mine_epochs_utility=mine_epochs_utility,
+        use_prev_epochs_mi_model=use_prev_epochs_mi_model,
+        utility_stats_network_model_path=None,
+        privacy_stats_network_model_path=None
     )
     
     encoder_params = EncoderParams(
         encoder_hidden_sizes=encoder_hidden_sizes,
         num_enc_epochs=num_enc_epochs,
-        save_enc_weights=save_enc_weights,
+        enc_save_dir_path=None
     )
     
     experiment_params = ExperimentParams(
