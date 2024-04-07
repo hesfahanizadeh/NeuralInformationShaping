@@ -33,6 +33,7 @@ class Encoder(nn.Module, ABC):
         super().__init__()
         self.in_size = None
         self.out_size = None
+        self.hidden_sizes = None
 
     @abstractmethod
     def forward(self, x: torch.Tensor):
@@ -46,6 +47,11 @@ class Encoder(nn.Module, ABC):
     @property
     @abstractmethod
     def out_size(self):
+        raise NotImplementedError
+    
+    @property
+    @abstractmethod
+    def hidden_sizes(self):
         raise NotImplementedError
     
 class DenseEncoder(Encoder):

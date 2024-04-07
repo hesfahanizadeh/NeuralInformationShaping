@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 @dataclass
@@ -18,7 +18,8 @@ class MINE_Params:
     
 @dataclass
 class EncoderParams:
-    encoder_hidden_sizes: list = field(default_factory=lambda: [512, 256, 128])
+    encoder_model_name: str
+    encoder_model_params: dict
     num_enc_epochs: int = 10
     enc_save_dir_path: Path = None
 

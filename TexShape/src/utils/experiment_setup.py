@@ -62,7 +62,8 @@ def get_experiment_params(args: argparse.Namespace) -> ExperimentParams:
     )
     
     encoder_params = EncoderParams(
-        encoder_hidden_sizes=encoder_hidden_sizes,
+        encoder_model_name= "DenseEncoder3",
+        encoder_model_params={"input_size": 768, "hidden_sizes": encoder_hidden_sizes, "output_size": encoder_hidden_sizes[-1]},
         num_enc_epochs=num_enc_epochs,
         enc_save_dir_path=None
     )

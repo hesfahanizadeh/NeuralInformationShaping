@@ -1,13 +1,15 @@
+# Standard library imports
 import math
-import numpy as np
 
+# Third party imports
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
 from pytorch_lightning import seed_everything
 
-# from utils.data import load_sst2, load_mnli, load_corona
-from models import models_to_train
+# Local application imports
+from models import models_to_train  
+from models.models_to_train import Encoder
 from utils.data_structures import ExperimentParams
 from utils.experiment_setup import get_experiment_params
 from data.utils import load_experiment_dataset
@@ -26,6 +28,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     experiment_params: ExperimentParams = get_experiment_params()
     print(experiment_params)
+
+    # Initialize encoder model
+    encoder_model: Encoder = vars(models_to_train)[
+        experiment_params.encoder_params.encoder_model_name
+    ](**experiment_params.encoder_params.encoder_model_params)
+    
+    encoder_model.to(device)
 
     dataset, train_private_labels, include_privacy = load_experiment_dataset(
         dataset_name=experiment_params.dataset_name,
@@ -49,10 +58,11 @@ def main():
         # pin_memory=True,
     )
 
+    return 1
     # Initialize dual optimization model
     dual_optimization = DualOptimizationEncoder(
         experiment_params=experiment_params,
-        encoder_model=models_to_train.Encoder(),
+        encoder_model=encoder_model,
         data_loader=data_loader,
         device=device,
         private_labels=train_private_labels,
@@ -60,7 +70,7 @@ def main():
 
     num_batches_final_MI = math.ceil(int(len(data_loader.dataset) / mine_batch_size))
     print("Num batches Final MI:", num_batches_final_MI)
-    
+
     # Train the encoder
     dual_optimization.train_encoder(
         num_batches_final_MI=num_batches_final_MI,
