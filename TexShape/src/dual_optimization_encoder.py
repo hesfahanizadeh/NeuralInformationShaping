@@ -10,9 +10,11 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from .models import models_to_train
+from .models.utils import create_mi_calculator_model
 from .utils.data_structures import ExperimentParams, MINE_Params, EncoderParams
 from .mine import MutualInformationEstimator, Mine
 from .data.utils import CustomDataset
+
 
 class DualOptimizationEncoder(nn.Module):
     def __init__(
@@ -107,14 +109,14 @@ class DualOptimizationEncoder(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for the dual optimization model
-        
+
         # TODO: Fix Docstring
         Args:
             num_batches_final_MI (int): Number of batches to calculate the final MI estimate
             include_privacy (bool, optional): Include privacy in the training. Defaults to True.
             include_utility (bool, optional): Include utility in the training. Defaults to True.
             gradient_batch_size (int, optional): . Defaults to 1.
-        
+
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: MI estimates for utility and privacy
         """
@@ -244,7 +246,10 @@ class DualOptimizationEncoder(nn.Module):
                 len(z_train_loader_utility.dataset) / self.mine_params.mine_batch_size,
             )
             assert num_batches_final_MI <= (
-                math.ceil(len(z_train_loader_utility.dataset) / self.mine_params.mine_batch_size)
+                math.ceil(
+                    len(z_train_loader_utility.dataset)
+                    / self.mine_params.mine_batch_size
+                )
             )
             utility_it = iter(z_train_loader_utility)
             for _ in range(num_batches_final_MI):
@@ -308,13 +313,13 @@ class DualOptimizationEncoder(nn.Module):
     ) -> None:
         """
         Training function for the encoder model.
-        
+
         Args:
             num_batches_final_MI (int, optional): Number of batches to calculate the final MI estimate. Defaults to 100.
             include_privacy (bool, optional): Include privacy in the training. Defaults to True.
             include_utility (bool, optional): Include utility in the training. Defaults to True.
             gradient_batch_size (int, optional): . Defaults to 1.
-        
+
         Returns:
             None
         """
@@ -360,15 +365,17 @@ class DualOptimizationEncoder(nn.Module):
             print(f"====> Epoch: {epoch} Loss: {loss:.8f}")
 
     def _get_utility_stats_network(self) -> nn.Module:
-        stats_network = vars(models_to_train)[
-            self.mine_params.utility_stats_network_model_name
-        ](**self.mine_params.utility_stats_network_model_params)
+        stats_network = create_mi_calculator_model(
+            model_name=self.mine_params.utility_stats_network_model_name,
+            model_params=self.mine_params.utility_stats_network_model_params,
+        )
         return stats_network
 
     def _get_privacy_stats_network(self) -> nn.Module:
-        stats_network = vars(models_to_train)[
-            self.mine_params.privacy_stats_network_model_name
-        ](**self.mine_params.privacy_stats_network_model_params)
+        stats_network = create_mi_calculator_model(
+            model_name=self.mine_params.privacy_stats_network_model_name,
+            model_params=self.mine_params.privacy_stats_network_model_params
+        )
         return stats_network
 
     def _save_encoder_weights(self, epoch: int) -> None:
@@ -384,13 +391,19 @@ class DualOptimizationEncoder(nn.Module):
             enc_save_dir_path.mkdir(parents=True, exist_ok=True)
 
         # TODO: Fix this part
-        encoder_model_path = enc_save_dir_path / f"{self.experiment_params.experiment_name}-epoch={epoch}.pt"
+        encoder_model_path = (
+            enc_save_dir_path
+            / f"{self.experiment_params.experiment_name}-epoch={epoch}.pt"
+        )
         torch.save(
             self.encoder_model,
             encoder_model_path,
         )
-        
-        optimizer_path = enc_save_dir_path / f"[optimizer] {self.experiment_params.experiment_name}-epoch={epoch}.pt"
+
+        optimizer_path = (
+            enc_save_dir_path
+            / f"[optimizer] {self.experiment_params.experiment_name}-epoch={epoch}.pt"
+        )
         torch.save(
             self.encoder_optimizer.state_dict(),
             optimizer_path,
@@ -398,6 +411,7 @@ class DualOptimizationEncoder(nn.Module):
 
     def save_mi_scores(self, epoch: int) -> None:
         raise NotImplementedError
+
 
 if __name__ == "__main__":
     print("Test")

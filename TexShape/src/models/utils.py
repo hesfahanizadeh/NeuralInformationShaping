@@ -1,0 +1,8 @@
+import models_to_train
+from models_to_train import Encoder, MI_CalculatorModel
+
+def create_encoder_model(*, model_name: str, model_params: dict) -> Encoder:
+    return vars(models_to_train)[model_name](**model_params)
+
+def create_mi_calculator_model(*, model_name:str, model_params:dict) -> MI_CalculatorModel:
+    return vars(models_to_train)[model_name](**model_params)

@@ -12,17 +12,18 @@ import hydra
 from omegaconf import DictConfig
 
 # Local application imports
-from src.models import models_to_train  
 from src.models.models_to_train import Encoder
+from src.models.utils import create_encoder_model
 from src.utils.data_structures import ExperimentParams
 from src.utils.experiment_setup import get_experiment_params
 from src.data.utils import load_experiment_dataset
 from src.dual_optimization_encoder import DualOptimizationEncoder
 
+
 @hydra.main(config_path="config", config_name="main", version_base="1.2")
 def main(config: DictConfig):
     logging.basicConfig(level=logging.INFO)
-    
+
     # Set random seed for reproducibility
     seed = 42
     torch.manual_seed(seed)
@@ -32,19 +33,19 @@ def main(config: DictConfig):
     torch.backends.cudnn.benchmark = False
     seed_everything(seed)
     logging.info(seed)
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     experiment_params: ExperimentParams = get_experiment_params(config)
     logging.info(experiment_params)
 
     # Initialize encoder model
-    encoder_model: Encoder = vars(models_to_train)[
-        experiment_params.encoder_params.encoder_model_name
-    ](**experiment_params.encoder_params.encoder_model_params)
-    
+    encoder_model: Encoder = create_encoder_model(
+        model_name=experiment_params.encoder_params.encoder_model_name,
+        model_params=experiment_params.encoder_params.encoder_model_params,
+    )
     encoder_model.to(device)
     logging.info(encoder_model)
-    
+
     embeddings_path: Path = Path(config.dataset.embeddings_path)
 
     dataset, train_private_labels, include_privacy = load_experiment_dataset(

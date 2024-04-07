@@ -29,7 +29,19 @@ class Encoder(nn.Module, ABC):
     # def hidden_dims(self):
     #     raise NotImplementedError
 
-class MIModel(nn.Module):
+# Encoder class
+class MI_CalculatorModel(nn.Module, ABC):
+    def __init__(self):
+        super().__init__()
+        self.in_dim = None
+        self.out_dim = None
+        self.hidden_dims = None
+
+    @abstractmethod
+    def forward(self, x: torch.Tensor):
+        pass
+
+class MIModel(MI_CalculatorModel):
     def __init__(self, in_dim, hidden_dims, out_dim):
         super(MIModel, self).__init__()
         self.input_sizes = in_dim
