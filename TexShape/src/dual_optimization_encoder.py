@@ -10,7 +10,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from models import models_to_train
-from utils.data_structures import ExperimentParams, MINE_Params
+from utils.data_structures import ExperimentParams, MINE_Params, EncoderParams
 from mine import MutualInformationEstimator, Mine
 from data.utils import CustomDataset
 
@@ -32,12 +32,10 @@ class DualOptimizationEncoder(nn.Module):
 
         self.experiment_params: ExperimentParams = experiment_params
         self.mine_params: MINE_Params = experiment_params.mine_args
-        self.encoder_params = experiment_params.encoder_params
+        self.encoder_params: EncoderParams = experiment_params.encoder_params
         self.beta: float = experiment_params.beta
         # Define the device
         self.device: torch.device = device
-
-
 
     def get_MINE(
         self,
@@ -107,10 +105,22 @@ class DualOptimizationEncoder(nn.Module):
         include_utility=True,
         gradient_batch_size=1,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """K = MINE_BATCH_SIZE"""
+        """
+        Forward pass for the dual optimization model
+        
+        # TODO: Fix Docstring
+        Args:
+            num_batches_final_MI (int): Number of batches to calculate the final MI estimate
+            include_privacy (bool, optional): Include privacy in the training. Defaults to True.
+            include_utility (bool, optional): Include utility in the training. Defaults to True.
+            gradient_batch_size (int, optional): . Defaults to 1.
+        
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: MI estimates for utility and privacy
+        """
         # Get encoder transformed data
         dataset: CustomDataset = self.data_loader.dataset
-        transformed_embeddings: torch.Tensor = self.encoder(
+        transformed_embeddings: torch.Tensor = self.encoder_model(
             dataset.inputs.float().to(self.device)
         )
 
@@ -186,7 +196,8 @@ class DualOptimizationEncoder(nn.Module):
         #         print("No previous MINE model found, training from scratch")
 
         # Optimize MINE estimate, "train" MINE
-        last_mi_utility = last_mi_privacy = 0
+        last_mi_utility = 0
+        last_mi_privacy = 0
         if include_utility:
             trainer_utility = Trainer(
                 max_epochs=self.mine_params.mine_epochs_utility,
@@ -230,10 +241,10 @@ class DualOptimizationEncoder(nn.Module):
                 "K: ",
                 self.mine_params.mine_batch_size,
                 "len dataset / K: ",
-                len(z_train_loader_utility.dataset) / self.mine_batch_size,
+                len(z_train_loader_utility.dataset) / self.mine_params.mine_batch_size,
             )
             assert num_batches_final_MI <= (
-                math.ceil(len(z_train_loader_utility.dataset) / self.mine_batch_size)
+                math.ceil(len(z_train_loader_utility.dataset) / self.mine_params.mine_batch_size)
             )
             utility_it = iter(z_train_loader_utility)
             for _ in range(num_batches_final_MI):
@@ -294,7 +305,19 @@ class DualOptimizationEncoder(nn.Module):
         include_privacy: bool = True,
         include_utility: bool = True,
         gradient_batch_size: int = 1,
-    ):
+    ) -> None:
+        """
+        Training function for the encoder model.
+        
+        Args:
+            num_batches_final_MI (int, optional): Number of batches to calculate the final MI estimate. Defaults to 100.
+            include_privacy (bool, optional): Include privacy in the training. Defaults to True.
+            include_utility (bool, optional): Include utility in the training. Defaults to True.
+            gradient_batch_size (int, optional): . Defaults to 1.
+        
+        Returns:
+            None
+        """
         """K = MINE_BATCH_SIZE"""
         # Encoder's training params
         mi_utility: torch.Tensor
@@ -329,7 +352,7 @@ class DualOptimizationEncoder(nn.Module):
 
             # if include_privacy:
             #     self.privacy_scores.append(mi_privacy.detach().cpu())
-            if self.encoder_params.enc_save_path is not None:
+            if self.encoder_params.enc_save_dir_path is not None:
                 self._save_encoder_weights(epoch)
 
             print(f"====> Epoch: {epoch} Utility MI I(T(x); L(x)): {mi_utility:.8f}")
@@ -344,7 +367,7 @@ class DualOptimizationEncoder(nn.Module):
 
     def _get_privacy_stats_network(self) -> nn.Module:
         stats_network = vars(models_to_train)[
-            self.mine_params.privacy_stats_network__model_name
+            self.mine_params.privacy_stats_network_model_name
         ](**self.mine_params.privacy_stats_network_model_params)
         return stats_network
 
@@ -373,20 +396,8 @@ class DualOptimizationEncoder(nn.Module):
             optimizer_path,
         )
 
-    # def save_mi_scores(self, dir):
-    #     # Check if the directory exists
-    #     if not os.path.exists(dir):
-    #         os.makedirs(dir, exist_ok=True)
-
-    #     utility_scores = np.array(self.utility_scores)
-    #     privacy_scores = np.array(self.privacy_scores)
-
-    #     # Save
-    #     utility_save_path = os.path.join(dir, f"{self.experiment_name}-utility.npy")
-    #     privacy_save_path = os.path.join(dir, f"{self.experiment_name}-privacy.npy")
-
-    #     np.save(utility_save_path, utility_scores)
-    #     np.save(privacy_save_path, privacy_scores)
+    def save_mi_scores(self, epoch: int) -> None:
+        raise NotImplementedError
 
 if __name__ == "__main__":
     print("Test")
