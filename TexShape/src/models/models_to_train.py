@@ -14,20 +14,20 @@ class Encoder(nn.Module, ABC):
     def forward(self, x: torch.Tensor):
         pass
 
-    @property
-    @abstractmethod
-    def in_size(self):
-        raise NotImplementedError
+    # @property
+    # @abstractmethod
+    # def in_dim(self):
+    #     raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def out_size(self):
-        raise NotImplementedError
+    # @property
+    # @abstractmethod
+    # def out_dim(self):
+    #     raise NotImplementedError
     
-    @property
-    @abstractmethod
-    def hidden_sizes(self):
-        raise NotImplementedError
+    # @property
+    # @abstractmethod
+    # def hidden_dims(self):
+    #     raise NotImplementedError
 
 class MIModel(nn.Module):
     def __init__(self, in_dim, hidden_dims, out_dim):
@@ -55,27 +55,27 @@ class MIModel(nn.Module):
 
 
     
-class DenseEncoder(Encoder):
-    # This is the function that its parameters are optimized for encoding
-    def __init__(self, in_size, hidden_size1, hidden_size2, out_size, dropout_rate=0.1):
-        super().__init__()
-        self.in_size = in_size
-        self.out_size = out_size
-        self.layers = nn.Sequential(
-            nn.Linear(in_size, hidden_size1),
-            nn.ReLU(),
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(hidden_size1, hidden_size2),
-            nn.ReLU(),
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(hidden_size2, out_size),
-            nn.ReLU()
-        )
+# class DenseEncoder(nn.Module):
+#     # This is the function that its parameters are optimized for encoding
+#     def __init__(self, in_size, hidden_size1, hidden_size2, out_size, dropout_rate=0.1):
+#         super().__init__()
+#         self.in_size = in_size
+#         self.out_size = out_size
+#         self.layers = nn.Sequential(
+#             nn.Linear(in_size, hidden_size1),
+#             nn.ReLU(),
+#             nn.Dropout(p=dropout_rate),
+#             nn.Linear(hidden_size1, hidden_size2),
+#             nn.ReLU(),
+#             nn.Dropout(p=dropout_rate),
+#             nn.Linear(hidden_size2, out_size),
+#             nn.ReLU()
+#         )
 
-    def forward(self, x: torch.Tensor):
-        x = x.float()
-        x = self.layers(x)
-        return x
+#     def forward(self, x: torch.Tensor):
+#         x = x.float()
+#         x = self.layers(x)
+#         return x
     
 class DenseEncoder2(Encoder):
     def __init__(self, in_dim, hidden_dims, out_dim):
@@ -99,44 +99,44 @@ class DenseEncoder2(Encoder):
     def forward(self, x):
         return self.main(x)
     
-class DenseEncoder3(Encoder):
-    def __init__(self, in_dim, hidden_sizes, out_size):
-        super(DenseEncoder3, self).__init__()
-        self.in_size = in_dim
-        self.out_size = out_size
+# class DenseEncoder3(Encoder):
+#     def __init__(self, in_dim, hidden_sizes, out_size):
+#         super(DenseEncoder3, self).__init__()
+#         self.in_size = in_dim
+#         self.out_size = out_size
 
-        layers = []
-        prev_size = in_dim
+#         layers = []
+#         prev_size = in_dim
 
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, hidden_size))
-            layers.append(nn.ReLU())
-            prev_size = hidden_size
+#         for hidden_size in hidden_sizes:
+#             layers.append(nn.Linear(prev_size, hidden_size))
+#             layers.append(nn.ReLU())
+#             prev_size = hidden_size
 
-        layers.append(nn.Linear(prev_size, out_size))
-        layers.append(nn.ReLU())
-        # layers.append(nn.Tanh())
+#         layers.append(nn.Linear(prev_size, out_size))
+#         layers.append(nn.ReLU())
+#         # layers.append(nn.Tanh())
 
-        self.main = nn.Sequential(*layers)
+#         self.main = nn.Sequential(*layers)
 
-    def forward(self, x):
-        return self.main(x)
+#     def forward(self, x):
+#         return self.main(x)
 
 class FlexibleDenseEncoder(Encoder):
-    def __init__(self, in_dim, hidden_sizes, out_size):
+    def __init__(self, in_dim, hidden_dims, out_dim):
         super(FlexibleDenseEncoder, self).__init__()
         self.in_size = in_dim
-        self.out_size = out_size
+        self.out_size = out_dim
 
         layers = []
         prev_size = in_dim
 
-        for hidden_size in hidden_sizes:
+        for hidden_size in hidden_dims:
             layers.append(nn.Linear(prev_size, hidden_size))
             layers.append(nn.Tanh())
             prev_size = hidden_size
 
-        layers.append(nn.Linear(prev_size, out_size))
+        layers.append(nn.Linear(prev_size, out_dim))
         layers.append(nn.Tanh())
 
         self.main = nn.Sequential(*layers)
@@ -144,51 +144,51 @@ class FlexibleDenseEncoder(Encoder):
     def forward(self, x):
         return self.main(x)
 
-class FlexibleDenseEncoderGELU(Encoder):
-    def __init__(self, in_dim, hidden_sizes, out_size):
-        super(FlexibleDenseEncoderGELU, self).__init__()
-        self.in_size = in_dim
-        self.out_size = out_size
+# class FlexibleDenseEncoderGELU(Encoder):
+#     def __init__(self, in_dim, hidden_sizes, out_size):
+#         super(FlexibleDenseEncoderGELU, self).__init__()
+#         self.in_size = in_dim
+#         self.out_size = out_size
 
-        layers = []
-        prev_size = in_dim
+#         layers = []
+#         prev_size = in_dim
 
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, hidden_size))
-            layers.append(nn.GELU())
-            prev_size = hidden_size
+#         for hidden_size in hidden_sizes:
+#             layers.append(nn.Linear(prev_size, hidden_size))
+#             layers.append(nn.GELU())
+#             prev_size = hidden_size
 
-        layers.append(nn.Linear(prev_size, out_size))
-        layers.append(nn.Tanh())
+#         layers.append(nn.Linear(prev_size, out_size))
+#         layers.append(nn.Tanh())
 
-        self.main = nn.Sequential(*layers)
+#         self.main = nn.Sequential(*layers)
 
-    def forward(self, x):
-        return self.main(x)
+#     def forward(self, x):
+#         return self.main(x)
 
-class FlexibleDenseEncoder2(Encoder):
-    def __init__(self, in_dim, hidden_sizes, out_size):
-        super(FlexibleDenseEncoder2, self).__init__()
-        self.in_size = in_dim
-        self.out_size = out_size
+# class FlexibleDenseEncoder2(Encoder):
+#     def __init__(self, in_dim, hidden_sizes, out_size):
+#         super(FlexibleDenseEncoder2, self).__init__()
+#         self.in_size = in_dim
+#         self.out_size = out_size
 
-        layers = []
-        prev_size = in_dim
+#         layers = []
+#         prev_size = in_dim
 
-        for hidden_size in hidden_sizes:
-            layers.append(nn.Linear(prev_size, hidden_size))
-            layers.append(nn.BatchNorm1d(hidden_size))  # Batch Norm before activation
-            layers.append(nn.GELU())
-            prev_size = hidden_size
+#         for hidden_size in hidden_sizes:
+#             layers.append(nn.Linear(prev_size, hidden_size))
+#             layers.append(nn.BatchNorm1d(hidden_size))  # Batch Norm before activation
+#             layers.append(nn.GELU())
+#             prev_size = hidden_size
 
-        layers.append(nn.Linear(prev_size, out_size))
-        layers.append(nn.BatchNorm1d(out_size))  # Batch Norm before activation
-        layers.append(nn.Tanh())
+#         layers.append(nn.Linear(prev_size, out_size))
+#         layers.append(nn.BatchNorm1d(out_size))  # Batch Norm before activation
+#         layers.append(nn.Tanh())
 
-        self.main = nn.Sequential(*layers)
+#         self.main = nn.Sequential(*layers)
 
-    def forward(self, x):
-        return self.main(x)
+#     def forward(self, x):
+#         return self.main(x)
 
 # class MINE(nn.Module):
 #     def __init__(self, enc_out_num_nodes):

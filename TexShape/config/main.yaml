@@ -1,5 +1,6 @@
 experiment:
   dataset_name: sst2  # Default dataset name 
+  dataset_path: null
   experiment_type: "utility+privacy" # choices=["utility", "utility+privacy", "compression", "compression+filtering"]
   mine_params:
     utility_stats_network_model_name: "MIModel"
@@ -17,7 +18,8 @@ experiment:
     encoder_model_params: {in_dim: 768, hidden_dims: [512, 256], out_dim: 128}
     num_enc_epochs: 10
     enc_save_dir_path: null
-  experiment_date: "2022-01-01"
   beta: 0.2
   combination_type: "premise_only" # choices = ["concat", "join", "premise_only"]
 
+dataset:
+  embeddings_path: data/processed

@@ -20,30 +20,30 @@ class CustomDataset(torch.utils.data.Dataset):
         return self.inputs[idx], self.targets[idx]
 
 
-def load_sst2(
-    train_data_dir_path: Path = Path("./data/sst2/train"),
-    validation_data_dir_path: Path = Path("./data/sst2/val"),
-) -> Tuple[
+def load_sst2(*, embeddings_path: Path) -> Tuple[
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ]:
 
-    train_embeddings_path = train_data_dir_path / "train_embeddings.pt"
+    dataset_dir_path = embeddings_path / "sst2"
+    train_dir_path = dataset_dir_path / "train"
+    train_embeddings_path = train_dir_path / "embeddings.pt"
     train_inputs: List[torch.Tensor] = torch.load(train_embeddings_path)
 
-    train_public_labels_path = train_data_dir_path / "sentiment_labels.pt"
+    train_public_labels_path = train_dir_path / "sentiment_labels.pt"
     train_public_labels = torch.load(train_public_labels_path)
 
-    train_private_labels_path = train_data_dir_path / "sent_len_labels.pt"
+    train_private_labels_path = train_dir_path / "sent_len_labels.pt"
     train_private_labels = torch.load(train_private_labels_path)
 
-    val_embeddings_path = validation_data_dir_path / "val_embeddings.pt"
+    validation_dir_path = dataset_dir_path / "validation"
+    val_embeddings_path = validation_dir_path / "embeddings.pt"
     val_inputs = torch.load(val_embeddings_path)
 
-    val_public_labels_path = validation_data_dir_path / "sentiment_labels.pt"
+    val_public_labels_path = validation_dir_path / "sentiment_labels.pt"
     val_public_labels = torch.load(val_public_labels_path)
 
-    val_private_labels_path = validation_data_dir_path / "sent_len_labels.pt"
+    val_private_labels_path = validation_dir_path / "sent_len_labels.pt"
     val_private_labels = torch.load(val_private_labels_path)
 
     return (train_inputs, train_public_labels, train_private_labels), (
@@ -180,7 +180,7 @@ def load_corona(train_data_path: Path, validation_data_path: Path) -> Tuple[
 def encode_dataset(
     dataset, model: SentenceTransformer, device: torch.device, batch_size=128
 ) -> torch.Tensor:
-    encoded = model.encode(
+    encoded: torch.Tensor = model.encode(
         dataset,
         convert_to_tensor=True,
         device=device,
@@ -188,12 +188,12 @@ def encode_dataset(
         show_progress_bar=True,
         normalize_embeddings=True,
     ).cpu()
-
     return encoded
 
 
 def load_experiment_dataset(
     *,
+    embeddings_path: Path,
     dataset_name: str,
     combination_type: str,
     experiment_type: str,
@@ -202,7 +202,9 @@ def load_experiment_dataset(
     # TODO: Fix this model
     # Load dataset
     if dataset_name == "sst2":
-        (train_inputs, train_public_labels, train_private_labels), _ = load_sst2()
+        (train_inputs, train_public_labels, train_private_labels), _ = load_sst2(
+            embeddings_path=embeddings_path
+        )
 
     elif dataset_name == "mnli":
         if device is None:
@@ -234,14 +236,10 @@ def load_experiment_dataset(
 
     # Training params
     if experiment_type == "utility":
-        # utility_stats_network = FeedForwardMI3(encoded_embedding_size).to(device)
-        # privacy_stats_network = FeedForwardMI3(encoded_embedding_size).to(device)
         dataset = CustomDataset(train_inputs, train_public_labels)
         include_privacy = False
 
     elif experiment_type == "utility+privacy":
-        # utility_stats_network = FeedForwardMI3(encoded_embedding_size).to(device)
-        # privacy_stats_network = FeedForwardMI3(encoded_embedding_size).to(device)
         dataset = CustomDataset(train_inputs, train_public_labels)
         include_privacy = True
 
@@ -253,8 +251,6 @@ def load_experiment_dataset(
         include_privacy = False
 
     elif experiment_type == "compression+filtering":
-        # utility_stats_network = FeedForwardMI(encoded_embedding_size, 768).to(device)
-        # privacy_stats_network = FeedForwardMI3(encoded_embedding_size).to(device)
         dataset = CustomDataset(train_inputs, train_inputs)
         include_privacy = True
 

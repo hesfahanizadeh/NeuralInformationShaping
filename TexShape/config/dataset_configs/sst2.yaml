@@ -1,0 +1,2 @@
+train_embeddings_path: data/processed/sst2/train
+validation_embeddings_path: data/processed/sst2/validation

@@ -9,10 +9,10 @@ from torch.utils.data import DataLoader
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from models import models_to_train
-from utils.data_structures import ExperimentParams, MINE_Params, EncoderParams
-from mine import MutualInformationEstimator, Mine
-from data.utils import CustomDataset
+from .models import models_to_train
+from .utils.data_structures import ExperimentParams, MINE_Params, EncoderParams
+from .mine import MutualInformationEstimator, Mine
+from .data.utils import CustomDataset
 
 class DualOptimizationEncoder(nn.Module):
     def __init__(
