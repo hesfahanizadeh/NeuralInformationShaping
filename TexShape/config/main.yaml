@@ -7,7 +7,7 @@ experiment:
     utility_stats_network_model_params: {in_dim: 768}
     privacy_stats_network_model_name: "MIModel"
     privacy_stats_network_model_params: {in_dim: 768}
-    use_prev_epochs_mi_model: true
+    use_prev_epochs_mi_model: false
     mine_batch_size: -1
     mine_epochs_privacy: 2000
     mine_epochs_utility: 2000
