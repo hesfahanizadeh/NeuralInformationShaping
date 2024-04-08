@@ -18,6 +18,9 @@ experiment:
     encoder_model_params: {in_dim: 768, hidden_dims: [512, 256], out_dim: 128}
     num_enc_epochs: 10
     enc_save_dir_path: null
+  log_params:
+    log_dir_path: "lightning_logs"
+    log_file_path: "lightning_logs/logs.txt"
   beta: 0.2
   combination_type: "premise_only" # choices = ["concat", "join", "premise_only"]
 

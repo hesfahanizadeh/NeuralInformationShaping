@@ -1,21 +1,16 @@
 import math
-import torch
-import torch.nn as nn
 from typing import Tuple
 
-# from mine.datasets import FunctionDataset
-
+import torch
+import torch.nn as nn
 import pytorch_lightning as pl
-# from pytorch_lightning import Trainer
 
 torch.autograd.set_detect_anomaly(True)
 EPS = 1e-6
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 class EMALoss(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input, running_ema):
+    def forward(ctx, input: torch.Tensor, running_ema):
         ctx.save_for_backward(input, running_ema)
         input_log_sum_exp = input.exp().mean().log()
         return input_log_sum_exp
@@ -35,7 +30,7 @@ def ema(mu, alpha, past_ema):
     return alpha * mu + (1.0 - alpha) * past_ema
 
 
-def ema_loss(x, running_mean, alpha):
+def ema_loss(x: torch.Tensor, running_mean, alpha):
     t_exp = torch.exp(torch.logsumexp(x, 0) - math.log(x.shape[0])).detach()
     if running_mean == 0:
         running_mean = t_exp
@@ -90,7 +85,7 @@ class Mine(nn.Module):
 
 
 class MutualInformationEstimator(pl.LightningModule):
-    def __init__(self, loss: str = "mine", **kwargs):
+    def __init__(self, loss: str = "mine", **kwargs) -> None:
         super().__init__()
         self.energy_loss: Mine = kwargs.get("mine")
         self.kwargs: dict = kwargs
@@ -100,14 +95,14 @@ class MutualInformationEstimator(pl.LightningModule):
         assert self.train_loader is not None
         print("energy loss: ", self.energy_loss)
 
-    def forward(self, x: torch.Tensor, z: torch.Tensor):
+    def forward(self, x: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         if self.on_gpu:
             x = x.cuda()
             z = z.cuda()
 
         return self.energy_loss(x, z)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> None:
         return torch.optim.Adam(self.parameters(), lr=self.kwargs["lr"])
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> dict:

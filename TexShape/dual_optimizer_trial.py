@@ -21,7 +21,7 @@ from src.dual_optimization_encoder import DualOptimizationEncoder
 
 
 @hydra.main(config_path="config", config_name="main", version_base="1.2")
-def main(config: DictConfig):
+def main(config: DictConfig) -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Set random seed for reproducibility
@@ -32,7 +32,7 @@ def main(config: DictConfig):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     seed_everything(seed)
-    logging.info(seed)
+    logging.info(f"Seed: {seed}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     experiment_params: ExperimentParams = get_experiment_params(config)
@@ -67,8 +67,8 @@ def main(config: DictConfig):
         dataset,
         batch_size=mine_batch_size,
         shuffle=True,
-        # num_workers=,
-        # pin_memory=True,
+        num_workers=4,
+        pin_memory=True,
     )
 
     # Initialize dual optimization model

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 @dataclass
@@ -13,16 +13,22 @@ class MINE_Params:
     mine_epochs_privacy: int = 2000
     mine_epochs_utility: int = 2000
     # Use default factory function to avoid mutable default arguments
-    utility_stats_network_model_path: Path = None
-    privacy_stats_network_model_path: Path = None
+    # if string passed then convert to Path object
+    utility_stats_network_model_path: Path = field(default_factory=Path)
+    privacy_stats_network_model_path: Path = field(default_factory=Path)
     
 @dataclass
 class EncoderParams:
     encoder_model_name: str
     encoder_model_params: dict
     num_enc_epochs: int = 10
-    enc_save_dir_path: Path = None
+    enc_save_dir_path: Path = field(default_factory=Path)
 
+@dataclass
+class LogParams:
+    log_dir_path: Path = field(default_factory=Path)
+    log_file_path: Path = field(default_factory=Path)
+    
 @dataclass
 class ExperimentParams:
     dataset_name: str
@@ -30,6 +36,7 @@ class ExperimentParams:
     experiment_type: str  # "utility+privacy"
     mine_params: MINE_Params
     encoder_params: EncoderParams
+    log_params: LogParams
     experiment_date: str
     
     beta: float = 0.2   
@@ -38,18 +45,3 @@ class ExperimentParams:
     @property
     def experiment_name(self) -> str:
         return f"{self.dataset_name}_{self.experiment_type}_{self.experiment_date}"
-
-# @dataclass
-# class HParams:
-#     batch_size: int
-#     learning_rate: float
-#     epochs: int
-#     num_classes: int
-#     input_shape: tuple
-#     dropout_rate: float
-
-#     def __post_init__(self):
-#         self.input_shape = (self.input_shape[0], self.input_shape[1], 1)
-
-#     def __str__(self):
-#         return f"batch_size: {self.batch_size}, learning_rate: {self.learning_rate}, epochs: {self.epochs}, num_classes: {self.num_classes}, input_shape: {self.input_shape}, dropout_rate: {self.dropout_rate}"

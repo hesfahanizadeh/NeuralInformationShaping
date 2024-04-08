@@ -9,7 +9,6 @@ import torch.optim as optim
 import pytorch_lightning as pl
 from torchmetrics import Accuracy
 
-
 class TestClass:
     def __init__(
         self,
