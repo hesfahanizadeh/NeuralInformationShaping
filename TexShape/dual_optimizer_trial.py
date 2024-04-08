@@ -81,7 +81,7 @@ def main(config: DictConfig) -> None:
     )
 
     num_batches_final_MI = math.ceil(int(len(data_loader.dataset) / mine_batch_size))
-    print("Num batches Final MI:", num_batches_final_MI)
+    logging.info(f"Num batches Final MI: {num_batches_final_MI}")
 
     return
     # Train the encoder
