@@ -1,13 +1,13 @@
-from sklearn.metrics import accuracy_score
+from typing import Tuple
+
 import torch
 from torch import nn
-
-from typing import Tuple
 from torch.utils.data import DataLoader
-
 import torch.optim as optim
 import pytorch_lightning as pl
+
 from torchmetrics import Accuracy
+from sklearn.metrics import accuracy_score
 
 class TestClass:
     def __init__(

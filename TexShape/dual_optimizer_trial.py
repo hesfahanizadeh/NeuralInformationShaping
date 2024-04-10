@@ -4,10 +4,8 @@ import logging
 from pathlib import Path
 
 # Third party imports
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from pytorch_lightning import seed_everything
 import hydra
 from omegaconf import DictConfig
 
@@ -16,6 +14,7 @@ from src.models.models_to_train import Encoder
 from src.models.utils import create_encoder_model
 from src.utils.data_structures import ExperimentParams
 from src.utils.experiment_setup import get_experiment_params
+from src.utils.general import set_seed, configure_torch_backend, set_include_privacy
 from src.data.utils import load_experiment_dataset
 from src.dual_optimization_encoder import DualOptimizationEncoder
 
@@ -26,12 +25,8 @@ def main(config: DictConfig) -> None:
 
     # Set random seed for reproducibility
     seed = 42
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    seed_everything(seed)
+    set_seed(seed)
+    configure_torch_backend()
     logging.info(f"Seed: {seed}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -45,20 +40,22 @@ def main(config: DictConfig) -> None:
     )
     encoder_model.to(device)
     logging.info(encoder_model)
+    
+    # Load the dataset
+    data_path: Path = Path(config.dataset.embeddings_path)
 
-    embeddings_path: Path = Path(config.dataset.embeddings_path)
-
-    dataset, train_private_labels, include_privacy = load_experiment_dataset(
-        embeddings_path=embeddings_path,
+    dataset = load_experiment_dataset(
         dataset_name=experiment_params.dataset_name,
+        data_path=data_path,
         combination_type=experiment_params.combination_type,
-        experiment_type=experiment_params.experiment_type,
-        device=device,
     )
 
+    # Set if privacy goal is included
+    include_privacy: bool = set_include_privacy(experiment_params.experiment_type) 
+    
     # Set the mine batch size
     if experiment_params.mine_params.mine_batch_size == -1:
-        mine_batch_size = len(train_private_labels)
+        mine_batch_size = len(dataset)
 
     logging.info(f"Mine Batch Size: {mine_batch_size}")
 
@@ -77,13 +74,11 @@ def main(config: DictConfig) -> None:
         encoder_model=encoder_model,
         data_loader=data_loader,
         device=device,
-        private_labels=train_private_labels,
     )
 
     num_batches_final_MI = math.ceil(int(len(data_loader.dataset) / mine_batch_size))
     logging.info(f"Num batches Final MI: {num_batches_final_MI}")
 
-    return
     # Train the encoder
     dual_optimization.train_encoder(
         num_batches_final_MI=num_batches_final_MI,

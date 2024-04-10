@@ -1,10 +1,12 @@
-import torch
-from transformers import BertTokenizer, BertModel, AutoTokenizer
-import transformers
 from typing import List, Tuple, Dict
+from pathlib import Path
+
+import torch
+import transformers 
+from transformers import BertTokenizer, BertModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer
 from datasets import load_dataset
-from pathlib import Path
+
 from ..data.utils import TexShapeDataset, MNLI_Dataset
 
 

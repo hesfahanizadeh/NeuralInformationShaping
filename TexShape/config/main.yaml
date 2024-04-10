@@ -1,7 +1,7 @@
 experiment:
   dataset_name: sst2  # Default dataset name 
   dataset_path: null
-  experiment_type: "utility+privacy" # choices=["utility", "utility+privacy", "compression", "compression+filtering"]
+  experiment_type: "utility+privacy" # choices=["utility", "utility+privacy", "compression", "compression+filter"]
   mine_params:
     utility_stats_network_model_name: "MIModel"
     utility_stats_network_model_params: {in_dim: 768}

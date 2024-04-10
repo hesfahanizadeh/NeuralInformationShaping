@@ -3,6 +3,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_curve, auc
+from pytorch_lightning import seed_everything
+import numpy as np
 
 # ROC and AUC functions # TODO Optimize this function
 def get_roc_auc(
@@ -28,3 +30,18 @@ def get_roc_auc(
     # Get the AUC
     auc_score = auc(roc[0], roc[1])
     return roc, auc_score
+
+def set_seed(seed: int):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    seed_everything(seed)
+
+def configure_torch_backend():
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+def set_include_privacy(experiment_type: str) -> bool:
+    if experiment_type == "utility+privacy" or experiment_type == "compression+filter":
+        return True
+    return False
