@@ -5,7 +5,7 @@ import logging
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -20,7 +20,7 @@ from .utils.data_structures import (
     LogParams,
 )
 from .mine import MutualInformationEstimator, Mine
-from .data.utils import CustomDataset
+from .data.utils import TexShapeDataset
 
 
 class DualOptimizationEncoder(nn.Module):
@@ -31,14 +31,12 @@ class DualOptimizationEncoder(nn.Module):
         encoder_model: models_to_train.Encoder,
         data_loader: DataLoader,
         device: torch.device,
-        private_labels: torch.Tensor = None,
     ) -> None:
         super().__init__()
         self.encoder_model = encoder_model
 
         self.data_loader: DataLoader = data_loader
-        self.dataset: CustomDataset = data_loader.dataset
-        self.private_labels: torch.Tensor = private_labels
+        self.dataset: TexShapeDataset = data_loader.dataset
 
         self.experiment_params: ExperimentParams = experiment_params
         self.mine_params: MINE_Params = experiment_params.mine_params
@@ -110,23 +108,24 @@ class DualOptimizationEncoder(nn.Module):
     ) -> Tuple[DataLoader, DataLoader, torch.Tensor]:
         # Get encoder transformed data
         transformed_embeddings: torch.Tensor = self.encoder_model(
-            self.dataset.inputs.float().to(self.device)
+            self.dataset.embeddings.float().to(self.device)
         )
 
-        labels_public = self.dataset.targets.float()
-        labels_private = self.private_labels.float()
+        labels_public = self.dataset.label1.float()
+        labels_private = self.dataset.label2.float()
 
         # Define datasets for MINE
 
         # Public Label
-        z_train_utility_detached = CustomDataset(
+        z_train_utility_detached = TensorDataset(
             transformed_embeddings.detach(),
-            labels_public.detach(),  # self.data_loader.dataset.inputs.float().to(device).detach()
+            labels_public.detach(),
         )
 
         # Private Label
-        z_train_privacy_detached = CustomDataset(
-            transformed_embeddings.detach(), labels_private.detach()
+        z_train_privacy_detached = TensorDataset(
+            transformed_embeddings.detach(),
+            labels_private.detach(),
         )
 
         # Define dataloaders for MINE
@@ -245,8 +244,8 @@ class DualOptimizationEncoder(nn.Module):
             ## -------- Calculate I(T(x); L(x)) estimate after MINE training ---------- ##
             # **IMPORTANT**: Use the non-detached og transformed_embeddings so that gradients are retained
 
-            labels_public = self.dataset.targets.float()
-            z_train_utility = CustomDataset(
+            labels_public = self.dataset.label1.float()
+            z_train_utility = TensorDataset(
                 transformed_embeddings, labels_public.float()
             )
 
@@ -304,8 +303,8 @@ class DualOptimizationEncoder(nn.Module):
             #     )
 
             #     ## -------- Calculate I(T(x); S(x)) estimate after MINE training ---------- ##
-            labels_private = self.private_labels.float()
-            z_train_privacy = CustomDataset(transformed_embeddings, labels_private)
+            labels_private = self.dataset.label2.float()
+            z_train_privacy = TensorDataset(transformed_embeddings, labels_private)
             z_train_loader_privacy = DataLoader(
                 z_train_privacy, self.mine_params.mine_batch_size, shuffle=True
             )
