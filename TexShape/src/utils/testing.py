@@ -9,24 +9,28 @@ import pytorch_lightning as pl
 from torchmetrics import Accuracy
 from sklearn.metrics import accuracy_score
 
+
 class TestClass:
     def __init__(
         self,
+        *,
         model: nn.Module,
         train_loader: DataLoader,
+        val_loader: DataLoader,
         criterion: nn.Module,
         optimizer: torch.optim.Optimizer,
         device: torch.device,
-    ) -> None   :
-        self.model = model
-        self.train_loader = train_loader
-        self.criterion = criterion
-        self.optimizer = optimizer
-        self.device = device
+    ) -> None:
+        self.model: nn.Module = model
+        self.train_loader: DataLoader = train_loader
+        self.val_loader: DataLoader = val_loader
+        self.criterion: nn.Module = criterion
+        self.optimizer: torch.optim.Optimizer = optimizer
+        self.device: torch.device = device
 
-    def test_function(self):
-        pass
-    
+    def test_function(self) -> None:
+        raise NotImplementedError
+
     # Create a function to train for 1 epoch
     def train_one_epoch(self) -> Tuple[float, float]:
         self.model = self.model.to(self.device)
@@ -39,7 +43,7 @@ class TestClass:
         loss: torch.Tensor
         inputs: torch.Tensor
         labels: torch.Tensor
-        
+
         total_loss: float = 0.0
         for inputs, labels in self.train_loader:
             inputs, labels = inputs.to(self.device), labels.to(self.device)

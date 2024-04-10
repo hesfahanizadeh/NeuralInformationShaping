@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import hydra
 from omegaconf import DictConfig
 
-# Local application imports
+# Local imports
 from src.models.models_to_train import Encoder
 from src.models.utils import create_encoder_model
 from src.utils.data_structures import ExperimentParams
