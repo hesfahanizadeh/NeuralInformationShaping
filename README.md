@@ -1,7 +1,9 @@
 # InfoShape
 InfoShape: Task-Based Neural Data Shaping via Mutual Information
 
-Developers:  Homa Esfahanizadeh and William (Bill) Wu
+Appeared in the 2023 IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP 2023)
+
+Developers:  Homa Esfahanizadeh, William (Bill) Wu, Manya Ghobadi, Regina Barzilay, Muriel Medard
 
 Based on and Inspired by the public repositories of the following papers:
 
@@ -12,5 +14,7 @@ K. Choi and S. Lee, “Regularized mutual information neural estimation,” Open
 
 # TexShape
 TexShape: Information Theoretic Sentence Embedding for Language Models
+
+Appeared in the  2024 IEEE International Symposium on Information Theory (ISIT 2024)
 
 Developers:  H. Kaan Kale, Homa Esfahanizadeh, Noel Elias, Oguzhan Baser, Muriel Medard, Sriram Vishwanath
