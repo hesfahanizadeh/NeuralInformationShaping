@@ -1,0 +1,6 @@
+defaults:
+  - dataset: sst2
+  - encoder: main
+  - simulation: main
+  
+device_idx: 0

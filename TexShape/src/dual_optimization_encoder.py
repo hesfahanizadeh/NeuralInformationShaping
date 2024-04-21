@@ -10,10 +10,10 @@ from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from .models import models_to_train
-from .models.models_to_train import MI_CalculatorModel
-from .models.utils import create_mi_calculator_model
-from .utils.data_structures import (
+from src.models import models_to_train
+from src.models.models_to_train import MI_CalculatorModel
+from src.models.utils import create_mi_calculator_model
+from src.utils.general import (
     ExperimentParams,
     MINE_Params,
     EncoderParams,
@@ -40,6 +40,10 @@ class DualOptimizationEncoder(nn.Module):
 
         self.experiment_params: ExperimentParams = experiment_params
         self.mine_params: MINE_Params = experiment_params.mine_params
+        # Set the mine batch size if -1 passed
+        if self.mine_params.mine_batch_size == -1:
+            self.mine_params.mine_batch_size = len(self.dataset)
+            
         self.encoder_params: EncoderParams = experiment_params.encoder_params
         self.log_params: LogParams = experiment_params.log_params
         self.beta: float = experiment_params.beta
@@ -170,7 +174,7 @@ class DualOptimizationEncoder(nn.Module):
             z_train_loader_utility_detached,
             z_train_loader_privacy_detached,
             transformed_embeddings,
-        ) = self.get_transformed_data_and_loaders(self)
+        ) = self.get_transformed_data_and_loaders()
 
         # TODO: Fix this part
         # Get MINE model (sitting in Pytorch lightning module)
@@ -189,6 +193,7 @@ class DualOptimizationEncoder(nn.Module):
             experiment_name=self.experiment_params.experiment_name,
             device=self.device,
             gradient_batch_size=gradient_batch_size,
+            log_dir_path=self.log_params.log_dir_path,
         )
 
         model_MINE_privacy, logger_privacy = self.get_MINE(
@@ -200,6 +205,7 @@ class DualOptimizationEncoder(nn.Module):
             experiment_name=self.experiment_params.experiment_name,
             device=self.device,
             gradient_batch_size=gradient_batch_size,
+            log_dir_path=self.log_params.log_dir_path
         )
 
         # TODO: Fix this part

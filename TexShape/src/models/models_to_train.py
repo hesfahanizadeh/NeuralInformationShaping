@@ -114,7 +114,6 @@ class MI_CalculatorModel(nn.Module, ABC):
     def __init__(self):
         super().__init__()
         self.in_dim = None
-        self.out_dim = None
         self.hidden_dims = None
 
     @abstractmethod
@@ -122,11 +121,10 @@ class MI_CalculatorModel(nn.Module, ABC):
         pass
 
 class MINE_Model(MI_CalculatorModel):
-    def __init__(self, in_dim, hidden_dims, out_dim):
+    def __init__(self, in_dim, hidden_dims):
         super(MINE_Model, self).__init__()
         self.input_sizes = in_dim
         self.hidden_sizes = hidden_dims
-        self.output_size = out_dim
 
         layers = []
         prev_size = in_dim
@@ -136,13 +134,13 @@ class MINE_Model(MI_CalculatorModel):
             layers.append(nn.ReLU())
             prev_size = hidden_dim
 
-        layers.append(nn.Linear(prev_size, out_dim))
+        layers.append(nn.Linear(prev_size, 1))
 
         self.layers = nn.Sequential(*layers)
 
     def forward(self, *inputs) -> torch.Tensor:
         x: torch.Tensor
-        input_list = List[torch.Tensor]
+        input_list: List[torch.Tensor] = list()
         for x in inputs:
             input_list.append(x.float().view(x.size(0), -1))
         cat = torch.cat(input_list, -1)

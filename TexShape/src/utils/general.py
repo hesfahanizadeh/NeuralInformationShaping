@@ -5,6 +5,75 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_curve, auc
 from pytorch_lightning import seed_everything
 import numpy as np
+import datetime
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from omegaconf import DictConfig
+
+
+@dataclass
+class MINE_Params:
+    utility_stats_network_model_name: str
+    utility_stats_network_model_params: dict
+    privacy_stats_network_model_name: str
+    privacy_stats_network_model_params: dict
+    use_prev_epochs_mi_model: bool
+
+    mine_batch_size: int = -1
+    mine_epochs_privacy: int = 2000
+    mine_epochs_utility: int = 2000
+    utility_stats_network_model_path: Path = field(default="")
+    privacy_stats_network_model_path: Path = field(default="")
+
+    def __post_init__(self):
+        if self.use_prev_epochs_mi_model:
+            self.utility_stats_network_model_path = Path(
+                self.utility_stats_network_model_path
+            )
+            self.privacy_stats_network_model_path = Path(
+                self.privacy_stats_network_model_path
+            )
+
+
+@dataclass
+class EncoderParams:
+    encoder_model_name: str
+    encoder_model_params: dict
+    num_enc_epochs: int = 10
+    enc_save_dir_path: Path = field(default="")
+
+    def __post_init__(self):
+        if self.enc_save_dir_path:
+            self.enc_save_dir_path = Path(self.enc_save_dir_path)
+
+
+@dataclass
+class LogParams:
+    log_dir_path: Path = field(default="")
+    log_file_path: Path = field(default="")
+
+    def __post_init__(self):
+        self.log_dir_path = Path(self.log_dir_path)
+        self.log_file_path = Path(self.log_file_path)
+
+
+@dataclass
+class ExperimentParams:
+    dataset_name: str
+    # TODO: Use ENUM or dict
+    experiment_type: str  # "utility+privacy"
+    mine_params: MINE_Params
+    encoder_params: EncoderParams
+    log_params: LogParams
+    experiment_date: str
+
+    beta: float = 0.2
+
+    @property
+    def experiment_name(self) -> str:
+        return f"{self.dataset_name}_{self.experiment_type}_{self.experiment_date}"
+
 
 # ROC and AUC functions # TODO Optimize this function
 def get_roc_auc(
@@ -31,17 +100,41 @@ def get_roc_auc(
     auc_score = auc(roc[0], roc[1])
     return roc, auc_score
 
+
 def set_seed(seed: int):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     np.random.seed(seed)
     seed_everything(seed)
 
+
 def configure_torch_backend():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
 
 def set_include_privacy(experiment_type: str) -> bool:
     if experiment_type == "utility+privacy" or experiment_type == "compression+filter":
         return True
     return False
+
+
+def get_date() -> str:
+    return datetime.datetime.now().strftime("%m_%d_%y")
+
+
+def get_experiment_params(config: DictConfig) -> ExperimentParams:
+    mine_params = MINE_Params(**config.simulation.mine)
+    encoder_params = EncoderParams(**config.encoder)
+    log_params = LogParams(**config.simulation.log)
+    experiment_date = get_date()
+    experiment_params = ExperimentParams(
+        dataset_name=config.dataset.dataset_name,
+        experiment_type=config.simulation.experiment_type,
+        mine_params=mine_params,
+        encoder_params=encoder_params,
+        log_params=log_params,
+        experiment_date=experiment_date,
+        beta=config.simulation.beta,
+    )
+    return experiment_params

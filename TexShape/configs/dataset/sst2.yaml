@@ -1,0 +1,4 @@
+dataset_name: "sst2"
+dataset_loc: "data/processed/sst2"
+sent_len_threshold: = 8
+train_test_split_ratio: 0.1

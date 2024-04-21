@@ -2,4 +2,4 @@
 
 # Specify the GPU devices to use
 
-python main.py --config configs/encoder.yaml --mode train
+python train.py --config-name config.yaml #--mode train

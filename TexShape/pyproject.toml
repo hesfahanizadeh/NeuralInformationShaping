@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "texshape"
+version = "0.1.0"
+description = "TexShape"
+authors = ["Kaan Kale"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+torch = "1.13.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

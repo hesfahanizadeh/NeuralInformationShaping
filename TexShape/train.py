@@ -1,7 +1,6 @@
 # Standard library imports
 import math
 import logging
-from pathlib import Path
 
 # Third party imports
 import torch
@@ -12,14 +11,12 @@ from omegaconf import DictConfig
 # Local imports
 from src.models.models_to_train import Encoder
 from src.models.utils import create_encoder_model
-from src.utils.data_structures import ExperimentParams
-from src.utils.experiment_setup import get_experiment_params
-from src.utils.general import set_seed, configure_torch_backend, set_include_privacy
-from src.data.utils import load_experiment_dataset
+from src.utils.general import set_seed, configure_torch_backend, set_include_privacy, get_experiment_params, ExperimentParams
+from src.data.utils import load_experiment_dataset, DatasetParams, get_dataset_params
 from src.dual_optimization_encoder import DualOptimizationEncoder
 
 
-@hydra.main(config_path="config", config_name="main", version_base="1.2")
+@hydra.main(config_path="configs", config_name="config.yaml", version_base="1.2")
 def main(config: DictConfig) -> None:
     logging.basicConfig(level=logging.INFO)
 
@@ -29,9 +26,14 @@ def main(config: DictConfig) -> None:
     configure_torch_backend()
     logging.info(f"Seed: {seed}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device_idx: int = config.device_idx
+    device = torch.device(f"cuda:{device_idx}" if torch.cuda.is_available() else "cpu")
     experiment_params: ExperimentParams = get_experiment_params(config)
+    dataset_params: DatasetParams = get_dataset_params(
+        experiment_params.dataset_name, config
+    )
     logging.info(experiment_params)
+    logging.info(dataset_params)
 
     # Initialize encoder model
     encoder_model: Encoder = create_encoder_model(
@@ -40,19 +42,16 @@ def main(config: DictConfig) -> None:
     )
     encoder_model.to(device)
     logging.info(encoder_model)
-    
-    # Load the dataset
-    data_path: Path = Path(config.dataset.embeddings_path)
 
+    # Load the dataset
     dataset = load_experiment_dataset(
-        dataset_name=experiment_params.dataset_name,
-        data_path=data_path,
-        combination_type=experiment_params.combination_type,
+        dataset_params=dataset_params,
+        device=device,
     )
 
     # Set if privacy goal is included
-    include_privacy: bool = set_include_privacy(experiment_params.experiment_type) 
-    
+    include_privacy: bool = set_include_privacy(experiment_params.experiment_type)
+
     # Set the mine batch size
     if experiment_params.mine_params.mine_batch_size == -1:
         mine_batch_size = len(dataset)
