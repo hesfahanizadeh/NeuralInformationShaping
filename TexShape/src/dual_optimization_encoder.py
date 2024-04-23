@@ -28,9 +28,11 @@ class DualOptimizationEncoder(nn.Module):
         self,
         *,
         experiment_params: ExperimentParams,
+        log_params: LogParams,
         encoder_model: models_to_train.Encoder,
         data_loader: DataLoader,
         device: torch.device,
+        experiment_dir_path: Path,
     ) -> None:
         super().__init__()
         self.encoder_model = encoder_model
@@ -40,12 +42,15 @@ class DualOptimizationEncoder(nn.Module):
 
         self.experiment_params: ExperimentParams = experiment_params
         self.mine_params: MINE_Params = experiment_params.mine_params
+        
         # Set the mine batch size if -1 passed
         if self.mine_params.mine_batch_size == -1:
             self.mine_params.mine_batch_size = len(self.dataset)
             
         self.encoder_params: EncoderParams = experiment_params.encoder_params
-        self.log_params: LogParams = experiment_params.log_params
+        self.experiment_dir_path: Path = experiment_dir_path
+
+        self.log_params: LogParams = log_params
         self.beta: float = experiment_params.beta
         # Define the device
         self.device: torch.device = device
@@ -60,7 +65,6 @@ class DualOptimizationEncoder(nn.Module):
         enc_out_num_nodes: int,
         train_epoch: int,
         mine_batch_size: int,
-        experiment_name: str,
         device: torch.device,
         log_dir_path: Path,
         gradient_batch_size=1,
@@ -98,9 +102,10 @@ class DualOptimizationEncoder(nn.Module):
             "gradient_batch_size": gradient_batch_size,
         }
 
+        # TODO: Fix here
         logger = TensorBoardLogger(
             log_dir_path,
-            name=f"{experiment_name} BS={mine_batch_size}",
+            name=f"BS={mine_batch_size}",
             version=f"{func_str}, BS={mine_batch_size}",
         )
 
@@ -190,7 +195,6 @@ class DualOptimizationEncoder(nn.Module):
             enc_out_num_nodes=self.encoder_model.out_dim,
             train_epoch=self.mine_params.mine_epochs_utility,
             mine_batch_size=self.mine_params.mine_batch_size,
-            experiment_name=self.experiment_params.experiment_name,
             device=self.device,
             gradient_batch_size=gradient_batch_size,
             log_dir_path=self.log_params.log_dir_path,
@@ -202,7 +206,6 @@ class DualOptimizationEncoder(nn.Module):
             enc_out_num_nodes=self.encoder_model.out_dim,
             train_epoch=self.mine_params.mine_epochs_privacy,
             mine_batch_size=self.mine_params.mine_batch_size,
-            experiment_name=self.experiment_params.experiment_name,
             device=self.device,
             gradient_batch_size=gradient_batch_size,
             log_dir_path=self.log_params.log_dir_path
@@ -233,7 +236,8 @@ class DualOptimizationEncoder(nn.Module):
             trainer_utility = Trainer(
                 max_epochs=self.mine_params.mine_epochs_utility,
                 logger=logger_utility,
-                gpus=1,
+                accelerator="gpu",
+                devices="1"
             )
             trainer_utility.fit(model_MINE_utility)
 
@@ -296,7 +300,8 @@ class DualOptimizationEncoder(nn.Module):
             trainer = Trainer(
                 max_epochs=self.mine_params.mine_epochs_privacy,
                 logger=logger_privacy,
-                gpus=1,
+                accelerator="gpu",
+                devices="1"
             )
             trainer.fit(model_MINE_privacy)
 

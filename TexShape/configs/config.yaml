@@ -2,5 +2,9 @@ defaults:
   - dataset: sst2
   - encoder: main
   - simulation: main
-  
+
 device_idx: 0
+
+hydra:
+  run:
+    dir: ./exps/training/${now:%Y-%m-%d}_${now:%H-%M-%S}

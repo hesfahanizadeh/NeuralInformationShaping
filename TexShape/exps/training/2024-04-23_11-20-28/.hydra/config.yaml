@@ -1,0 +1,36 @@
+dataset:
+  dataset_name: sst2
+  dataset_loc: data/processed/sst2
+  sent_len_threshold: = 8
+  train_test_split_ratio: 0.1
+encoder:
+  encoder_model_name: DenseEncoder2
+  encoder_model_params:
+    in_dim: 768
+    hidden_dims:
+    - 512
+    - 256
+    out_dim: 128
+  num_enc_epochs: 10
+simulation:
+  experiment_type: utility+privacy
+  beta: 0.2
+  mine:
+    utility_stats_network_model_name: MINE_Model
+    utility_stats_network_model_params:
+      in_dim: 129
+      hidden_dims:
+      - 32
+    privacy_stats_network_model_name: MINE_Model
+    privacy_stats_network_model_params:
+      in_dim: 129
+      hidden_dims:
+      - 32
+    use_prev_epochs_mi_model: false
+    mine_batch_size: -1
+    mine_epochs_privacy: 2000
+    mine_epochs_utility: 2000
+  log:
+    log_dir_path: lightning_logs
+    log_file_path: lightning_logs/logs.txt
+device_idx: 0

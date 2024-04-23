@@ -6,7 +6,8 @@ from sklearn.metrics import roc_curve, auc
 from pytorch_lightning import seed_everything
 import numpy as np
 import datetime
-
+from abc import ABC
+from typing import Union
 from dataclasses import dataclass, field
 from pathlib import Path
 from omegaconf import DictConfig
@@ -23,29 +24,40 @@ class MINE_Params:
     mine_batch_size: int = -1
     mine_epochs_privacy: int = 2000
     mine_epochs_utility: int = 2000
-    utility_stats_network_model_path: Path = field(default="")
-    privacy_stats_network_model_path: Path = field(default="")
+
+class DatasetParams(ABC):
+    dataset_loc: Union[Path, str]
+    dataset_name: str
+
+
+@dataclass
+class SST2_Params(DatasetParams):
+    dataset_name: str
+    sent_len_threshold: int
+    train_test_split_ratio: float
+    dataset_loc: Path
 
     def __post_init__(self):
-        if self.use_prev_epochs_mi_model:
-            self.utility_stats_network_model_path = Path(
-                self.utility_stats_network_model_path
-            )
-            self.privacy_stats_network_model_path = Path(
-                self.privacy_stats_network_model_path
-            )
+        if isinstance(self.dataset_loc, str):
+            self.dataset_loc = Path(self.dataset_loc)
 
+
+@dataclass
+class MNLI_Params(DatasetParams):
+    dataset_name: str
+    dataset_loc: Path
+    combination_type: str
+
+    def __post_init__(self):
+        if isinstance(self.dataset_loc, str):
+            self.dataset_loc = Path(self.dataset_loc)
 
 @dataclass
 class EncoderParams:
     encoder_model_name: str
     encoder_model_params: dict
     num_enc_epochs: int = 10
-    enc_save_dir_path: Path = field(default="")
-
-    def __post_init__(self):
-        if self.enc_save_dir_path:
-            self.enc_save_dir_path = Path(self.enc_save_dir_path)
+    
 
 
 @dataclass
@@ -63,16 +75,9 @@ class ExperimentParams:
     dataset_name: str
     # TODO: Use ENUM or dict
     experiment_type: str  # "utility+privacy"
+    beta: float
     mine_params: MINE_Params
     encoder_params: EncoderParams
-    log_params: LogParams
-    experiment_date: str
-
-    beta: float = 0.2
-
-    @property
-    def experiment_name(self) -> str:
-        return f"{self.dataset_name}_{self.experiment_type}_{self.experiment_date}"
 
 
 # ROC and AUC functions # TODO Optimize this function
@@ -123,18 +128,19 @@ def get_date() -> str:
     return datetime.datetime.now().strftime("%m_%d_%y")
 
 
-def get_experiment_params(config: DictConfig) -> ExperimentParams:
+def load_experiment_params(config: DictConfig) -> ExperimentParams:
     mine_params = MINE_Params(**config.simulation.mine)
     encoder_params = EncoderParams(**config.encoder)
-    log_params = LogParams(**config.simulation.log)
-    experiment_date = get_date()
     experiment_params = ExperimentParams(
         dataset_name=config.dataset.dataset_name,
         experiment_type=config.simulation.experiment_type,
         mine_params=mine_params,
         encoder_params=encoder_params,
-        log_params=log_params,
-        experiment_date=experiment_date,
         beta=config.simulation.beta,
     )
     return experiment_params
+
+
+def load_log_params(config: DictConfig) -> LogParams:
+    log_params = LogParams(**config.simulation.log)
+    return log_params

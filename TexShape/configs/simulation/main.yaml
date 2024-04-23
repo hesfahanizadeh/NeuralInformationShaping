@@ -1,4 +1,4 @@
-experiment_type: "utility+privacy" # choices=["utility", "utility+privacy", "compression", "compression+filter"]
+experiment_type: "utility+privacy" # choices=["utility", "utility+privacy", "compression", "compression+privacy"]
 beta: 0.2
 
 mine:
@@ -10,8 +10,6 @@ mine:
   mine_batch_size: -1 # -1 means all data
   mine_epochs_privacy: 2000
   mine_epochs_utility: 2000
-  utility_stats_network_model_path: null
-  privacy_stats_network_model_path: null
 
 log:
   log_dir_path: "lightning_logs"
