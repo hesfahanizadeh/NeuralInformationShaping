@@ -50,7 +50,6 @@ def preprocess_mnli(
     device: str,
     data_path: Path = Path("data/processed/mnli"),
 ) -> None:
-    raise NotImplementedError("Not implemented yet.")
     model_name: str = "all-mpnet-base-v2"
     desired_genres: List[str] = ["telephone", "government"]
 
@@ -99,6 +98,23 @@ def preprocess_mnli(
     validation_hypothesis_embeddings = extract_embeddings(
         validation_filtered_dataset["hypothesis"], model, device=device
     )
+
+    torch.save(train_premise_embeddings, data_path / "train_premise_embeddings.pt")
+    torch.save(
+        train_hypothesis_embeddings, data_path / "train_hypothesis_embeddings.pt"
+    )
+    torch.save(train_label1, data_path / "train_label1.pt")
+    torch.save(train_label2, data_path / "train_label2.pt")
+
+    torch.save(
+        validation_premise_embeddings, data_path / "validation_premise_embeddings.pt"
+    )
+    torch.save(
+        validation_hypothesis_embeddings,
+        data_path / "validation_hypothesis_embeddings.pt",
+    )
+    torch.save(validation_label1, data_path / "validation_label1.pt")
+    torch.save(validation_label2, data_path / "validation_label2.pt")
 
 
 def preprocess_corona(

@@ -59,7 +59,7 @@ def main(config: DictConfig) -> None:
     logging.info(encoder_model)
 
     # Load the dataset
-    dataset = load_experiment_dataset(
+    dataset, _ = load_experiment_dataset(
         dataset_params=dataset_params,
         device=device,
     )

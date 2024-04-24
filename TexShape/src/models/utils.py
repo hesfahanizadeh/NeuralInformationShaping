@@ -1,5 +1,5 @@
-from .models_to_train import Encoder, MI_CalculatorModel
-from . import models_to_train
+from src.models.models_to_train import Encoder, MI_CalculatorModel
+from src.models import models_to_train
 
 def create_encoder_model(*, model_name: str, model_params: dict) -> Encoder:
     return vars(models_to_train)[model_name](**model_params)

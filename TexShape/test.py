@@ -12,7 +12,7 @@ from src.utils.general import (
     load_experiment_params,
     ExperimentParams,
 )
-from src.data.utils import load_test_dataset, load_dataset_params
+from src.data.utils import load_experiment_dataset, load_dataset_params
 from src.utils.testing import TestClass
 from src.models.predict_model import SimpleClassifier
 
@@ -188,8 +188,8 @@ def main(test_config: DictConfig) -> None:
     for test_type in test_types:
         model: SimpleClassifier = load_test_model(test_type=test_type, dataset_name=dataset_name)
 
-        train_dataset, validation_dataset = load_test_dataset(
-            dataset_name=dataset_name, dataset_params=dataset_params
+        train_dataset, validation_dataset = load_experiment_dataset(
+            dataset_params=dataset_params, device=device
         )
 
         if test_type == "NOISE":
