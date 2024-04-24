@@ -1,6 +1,7 @@
-from torch import nn
-import torch
 from typing import Iterable, List
+
+import torch
+from torch import nn
 
 class SimpleClassifier(nn.Module):
     def __init__(self, in_dim: int, hidden_dims: Iterable[int], out_dim, dropout_rate=0.1) -> None:

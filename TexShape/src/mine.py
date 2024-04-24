@@ -85,14 +85,13 @@ class Mine(nn.Module):
 
 
 class MutualInformationEstimator(pl.LightningModule):
-    def __init__(self, loss: str = "mine", **kwargs) -> None:
+    def __init__(
+        self, loss: str = "mine", **kwargs
+    ) -> None:
         super().__init__()
         self.energy_loss: Mine = kwargs.get("mine")
-        self.kwargs: dict = kwargs
-        self.gradient_batch_size: int = kwargs.get("gradient_batch_size", 1)
-        self.train_loader = kwargs.get("train_loader")
+        self.kwargs = kwargs
         assert self.energy_loss is not None
-        assert self.train_loader is not None
         print("energy loss: ", self.energy_loss)
 
     def forward(self, x: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
@@ -106,63 +105,21 @@ class MutualInformationEstimator(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.kwargs["lr"])
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> dict:
-        # Each batch is just the minibatch in MINE, and also the same
-        # as a "batch" from a dataloader, ie using our value of 'K'
         x, z = batch
-        if self.on_gpu:
-            x = x.cuda()
-            z = z.cuda()
+        
+        # Ensure the data is on the correct device
+        x = x.to(self.device)
+        z = z.to(self.device)
 
         loss = self.energy_loss(x, z)
         mi = -loss
-        
-        
-        tensorboard_logs = {"loss": loss, "mi": mi}
-        tqdm_dict = {"loss_tqdm": loss, "mi": mi}
-        self.last_mi = mi
-        self.logger.experiment.add_scalar(
-            f"MI Train | {self.kwargs['func']}, N={self.kwargs.get('N', 'conv mnist')}, batch_size={self.kwargs['batch_size']}, hidden=1",
-            mi,
-            self.current_epoch,
-        )
-        self.logger.log_metrics(tensorboard_logs, self.current_epoch)
 
-        return {**tensorboard_logs, "log": tensorboard_logs, "progress_bar": tqdm_dict}
-    
-    def train_dataloader(self):
-        return self.train_loader
-    
-def optimizer_step(
-    self,
-    epoch: int,
-    batch_idx: int,
-    optimizer: torch.optim.Optimizer,
-    optimizer_idx: int = 0,
-    optimizer_closure=None,
-    on_tpu: bool = False,
-    using_native_amp: bool = False,
-    using_lbfgs: bool = False,
-) -> None:
-    if batch_idx % self.gradient_batch_size == 0:
-        # Ensure closure is not None before attempting to use it
-        if optimizer_closure is not None:
-            optimizer.step(closure=optimizer_closure)
-        else:
-            optimizer.step()  # Default step if no closure is provided
-    else:
-        # Optionally, you might decide to call the closure to update internal states or logs,
-        # but this should be done carefully and documented why it's needed.
-        if optimizer_closure is not None:
-            optimizer_closure()
-        # No step is performed here since it's not the right batch index for stepping.
+        # Log the metrics using self.log
+        self.log('loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('mi', mi, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
+        # # Maintain some state if needed
+        # self.last_mi = mi
 
-    def optimizer_zero_grad(
-        self, epoch: int, batch_idx: int, optimizer, optimizer_idx: int
-    ) -> None:
-        if batch_idx % self.gradient_batch_size == 0:
-            optimizer.zero_grad()
-
-    def train_dataloader(self):
-        assert self.train_loader is not None
-        return self.train_loader
+        # Return the loss to use the default backward pass
+        return loss

@@ -3,8 +3,8 @@ defaults:
   - encoder: main
   - simulation: main
 
-device_idx: 0
+device_idx: 1
 
 hydra:
   run:
-    dir: ./exps/training/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: ./exps/${now:%Y-%m-%d}_${now:%H-%M-%S}

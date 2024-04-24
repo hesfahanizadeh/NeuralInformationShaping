@@ -1,6 +1,6 @@
 # Standard library imports
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 
 # Third-party library imports
 import torch
@@ -147,7 +147,7 @@ def load_dataset_params(dataset_name: str, config: DictConfig) -> DatasetParams:
 
 
 def load_sst2(
-    sst2_data_path: Path, train_test_split_ratio: float = 0.9
+    sst2_data_path: Union[Path, str], train_test_split_ratio: float = 0.9
 ) -> Tuple[TexShapeDataset, TexShapeDataset]:
     """
     Load the SST-2 dataset and split it into train and validation sets.
@@ -157,6 +157,9 @@ def load_sst2(
 
     :return: A tuple containing the train and validation datasets.
     """
+    if isinstance(sst2_data_path, str):
+        sst2_data_path = Path(sst2_data_path)
+        
     train_embeddings = torch.load(sst2_data_path / "embeddings.pt")
     train_sentiment_labels = torch.load(sst2_data_path / "sentiment_labels.pt")
     train_sent_len_labels = torch.load(sst2_data_path / "sent_len_labels.pt")

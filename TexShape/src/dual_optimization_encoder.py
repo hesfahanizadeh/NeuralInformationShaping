@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks import EarlyStopping
 
 from src.models import models_to_train
 from src.models.models_to_train import MI_CalculatorModel
@@ -17,10 +18,9 @@ from src.utils.general import (
     ExperimentParams,
     MINE_Params,
     EncoderParams,
-    LogParams,
 )
-from .mine import MutualInformationEstimator, Mine
-from .data.utils import TexShapeDataset
+from src.mine import MutualInformationEstimator, Mine
+from src.data.utils import TexShapeDataset
 
 
 class DualOptimizationEncoder(nn.Module):
@@ -28,11 +28,11 @@ class DualOptimizationEncoder(nn.Module):
         self,
         *,
         experiment_params: ExperimentParams,
-        log_params: LogParams,
         encoder_model: models_to_train.Encoder,
         data_loader: DataLoader,
         device: torch.device,
         experiment_dir_path: Path,
+        **kwargs,
     ) -> None:
         super().__init__()
         self.encoder_model = encoder_model
@@ -50,67 +50,43 @@ class DualOptimizationEncoder(nn.Module):
         self.encoder_params: EncoderParams = experiment_params.encoder_params
         self.experiment_dir_path: Path = experiment_dir_path
 
-        self.log_params: LogParams = log_params
         self.beta: float = experiment_params.beta
         # Define the device
         self.device: torch.device = device
 
+        if kwargs.get("device_idx", None) is not None:
+            self.device_idx: int = kwargs.get("device_idx", None)
+        else:
+            self.device_idx: int = 0
+
+        self.num_workers: int = 0  # experiment_params.num_workers
+        self.mine_trainer_patience: int = 100
         logging.info(f"Device: {self.device}")
+
+        self.epoch = 0
 
     def get_MINE(
         self,
         *,
         stats_network: nn.Module,
-        transformed_data_loader: DataLoader,
-        enc_out_num_nodes: int,
-        train_epoch: int,
-        mine_batch_size: int,
         device: torch.device,
-        log_dir_path: Path,
-        gradient_batch_size=1,
-    ) -> Tuple[MutualInformationEstimator, TensorBoardLogger]:
-        """
-        Get the MINE model and logger
-
-        Args:
-            transformed_data_loader (DataLoader): Dataloader that contains the output of the encoder
-            enc_out_num_nodes (int): Number of nodes in the encoder's output
-            mine_epochs (int): Number of epochs to train the MINE model
-            train_epoch (int): Current training epoch
-            gradient_batch_size (int, optional): . Defaults to 1.
-            func_str (str, optional): Determines how many mini batches (MINE iters) of gradients get accumulated before optimizer step gets applied. Defaults to None.
-            utility (bool, optional): Determines if the MINE model is for utility or privacy. Defaults to True.
-
-        Returns:
-            Tuple[nn.Module, TensorBoardLogger]: MINE model and logger
-        """
+    ) -> MutualInformationEstimator:
         # Define Mine model
         mi_estimator = Mine(stats_network, loss="mine").to(self.device)
-        func_str = (
-            f"training epoch={train_epoch}: f(x)=DenseEnc(x) {enc_out_num_nodes} nodes"
-        )
 
         kwargs = {
             "mine": mi_estimator,
-            "lr": 1e-4,
-            "batch_size": mine_batch_size,
+            "lr": 1e-3,
             "alpha": 0.1,  # Used as the ema weight in MINE
-            "func": func_str,
-            "train_loader": transformed_data_loader,
             # Determines how many mini batches (MINE iters) of gradients get accumulated before optimizer step gets applied
             # Meant to stabilize the MINE curve for [hopefully] better encoder training performance
-            "gradient_batch_size": gradient_batch_size,
         }
 
-        # TODO: Fix here
-        logger = TensorBoardLogger(
-            log_dir_path,
-            name=f"BS={mine_batch_size}",
-            version=f"{func_str}, BS={mine_batch_size}",
-        )
-
-        model = MutualInformationEstimator(loss="mine", **kwargs).to(device)
-        return model, logger
+        model = MutualInformationEstimator(
+            loss="mine",
+            **kwargs,
+        ).to(device)
+        return model
 
     def get_transformed_data_and_loaders(
         self,
@@ -127,22 +103,30 @@ class DualOptimizationEncoder(nn.Module):
 
         # Public Label
         z_train_utility_detached = TensorDataset(
-            transformed_embeddings.detach(),
+            transformed_embeddings.detach().cpu(),
             labels_public.detach(),
         )
 
         # Private Label
         z_train_privacy_detached = TensorDataset(
-            transformed_embeddings.detach(),
+            transformed_embeddings.detach().cpu(),
             labels_private.detach(),
         )
 
         # Define dataloaders for MINE
         z_train_loader_utility_detached = DataLoader(
-            z_train_utility_detached, self.mine_params.mine_batch_size, shuffle=True
+            z_train_utility_detached,
+            self.mine_params.mine_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
         )
         z_train_loader_privacy_detached = DataLoader(
-            z_train_privacy_detached, self.mine_params.mine_batch_size, shuffle=True
+            z_train_privacy_detached,
+            self.mine_params.mine_batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
         )
 
         return (
@@ -162,7 +146,6 @@ class DualOptimizationEncoder(nn.Module):
         """
         Forward pass for the dual optimization model
 
-        # TODO: Fix Docstring
         Args:
             num_batches_final_MI (int): Number of batches to calculate the final MI estimate
             include_privacy (bool, optional): Include privacy in the training. Defaults to True.
@@ -189,26 +172,14 @@ class DualOptimizationEncoder(nn.Module):
         MINE_utility_stats_network: nn.Module = self._get_utility_stats_network()
         MINE_privacy_stats_network: nn.Module = self._get_privacy_stats_network()
 
-        model_MINE_utility, logger_utility = self.get_MINE(
+        model_MINE_utility = self.get_MINE(
             stats_network=MINE_utility_stats_network,
-            transformed_data_loader=z_train_loader_utility_detached,
-            enc_out_num_nodes=self.encoder_model.out_dim,
-            train_epoch=self.mine_params.mine_epochs_utility,
-            mine_batch_size=self.mine_params.mine_batch_size,
             device=self.device,
-            gradient_batch_size=gradient_batch_size,
-            log_dir_path=self.log_params.log_dir_path,
         )
 
-        model_MINE_privacy, logger_privacy = self.get_MINE(
+        model_MINE_privacy = self.get_MINE(
             stats_network=MINE_privacy_stats_network,
-            transformed_data_loader=z_train_loader_privacy_detached,
-            enc_out_num_nodes=self.encoder_model.out_dim,
-            train_epoch=self.mine_params.mine_epochs_privacy,
-            mine_batch_size=self.mine_params.mine_batch_size,
             device=self.device,
-            gradient_batch_size=gradient_batch_size,
-            log_dir_path=self.log_params.log_dir_path,
         )
 
         # TODO: Fix this part
@@ -233,13 +204,30 @@ class DualOptimizationEncoder(nn.Module):
         last_mi_utility = 0
         last_mi_privacy = 0
         if include_utility:
+            early_stop_callback = EarlyStopping(
+                monitor="mi", patience=self.mine_trainer_patience, mode="max"
+            )
+
+            logger_utility = TensorBoardLogger(
+                str(self.experiment_dir_path),
+                name="MINE_logs",
+                version=f"utility_{self.epoch}",
+            )
+
             trainer_utility = Trainer(
                 max_epochs=self.mine_params.mine_epochs_utility,
                 logger=logger_utility,
+                log_every_n_steps=1,
                 accelerator="gpu",
-                devices="1",
+                devices=[self.device_idx],
+                accumulate_grad_batches=gradient_batch_size,
+                callbacks=[early_stop_callback],
             )
-            trainer_utility.fit(model_MINE_utility)
+
+            trainer_utility.fit(
+                model=model_MINE_utility,
+                train_dataloaders=z_train_loader_utility_detached,
+            )
 
             # TODO: Fix this part
             # if self.utility_stats_network_path:
@@ -264,23 +252,25 @@ class DualOptimizationEncoder(nn.Module):
             # )
 
             z_train_loader_utility = DataLoader(
-                z_train_utility, self.mine_params.mine_batch_size, shuffle=True
+                z_train_utility,
+                batch_size=self.mine_params.mine_batch_size,
+                shuffle=True,
+                num_workers=self.num_workers,
             )
             model_MINE_utility.energy_loss.to(self.device)
             sum_MI_utility = 0
 
             # Average MI across num_batches_final_MI batches to lower variance
             # Batches are K random samples from the dataset after all
+
             logging.info(
-                "Num batches final MI: ",
+                "Num batches final MI: %s, \nlen dataset: %s, \nK: %s, \nlen dataset / K: %s",
                 num_batches_final_MI,
-                "len dataset: ",
                 len(z_train_loader_utility.dataset),
-                "K: ",
                 self.mine_params.mine_batch_size,
-                "len dataset / K: ",
                 len(z_train_loader_utility.dataset) / self.mine_params.mine_batch_size,
             )
+
             assert num_batches_final_MI <= (
                 math.ceil(
                     len(z_train_loader_utility.dataset)
@@ -297,13 +287,30 @@ class DualOptimizationEncoder(nn.Module):
             last_mi_utility = -1 * sum_MI_utility / num_batches_final_MI
 
         if include_privacy:
+            early_stop_callback = EarlyStopping(
+                monitor="mi", patience=self.mine_trainer_patience, mode="max"
+            )
+
+            logger_privacy = TensorBoardLogger(
+                str(self.experiment_dir_path),
+                name="MINE_logs",
+                version=f"privacy_{self.epoch}",
+            )
+
             trainer = Trainer(
                 max_epochs=self.mine_params.mine_epochs_privacy,
                 logger=logger_privacy,
+                log_every_n_steps=1,
                 accelerator="gpu",
-                devices="1",
+                devices=[self.device_idx],
+                accumulate_grad_batches=gradient_batch_size,
+                callbacks=[early_stop_callback],
             )
-            trainer.fit(model_MINE_privacy)
+
+            trainer.fit(
+                model=model_MINE_privacy,
+                train_dataloaders=z_train_loader_privacy_detached,
+            )
 
             # # If path exists, save the weights of the MINE model
             # if self.privacy_stats_network_path:
@@ -317,7 +324,10 @@ class DualOptimizationEncoder(nn.Module):
             labels_private = self.dataset.label2.float()
             z_train_privacy = TensorDataset(transformed_embeddings, labels_private)
             z_train_loader_privacy = DataLoader(
-                z_train_privacy, self.mine_params.mine_batch_size, shuffle=True
+                z_train_privacy,
+                self.mine_params.mine_batch_size,
+                shuffle=True,
+                num_workers=self.num_workers,
             )
             model_MINE_privacy.energy_loss.to(self.device)
 
@@ -411,6 +421,8 @@ class DualOptimizationEncoder(nn.Module):
             )
             logging.info(f"====> Epoch: {epoch} Loss: {loss:.8f}")
 
+            self.epoch += 1
+
     def _get_utility_stats_network(self) -> MI_CalculatorModel:
         stats_network = create_mi_calculator_model(
             model_name=self.mine_params.utility_stats_network_model_name,
@@ -433,9 +445,11 @@ class DualOptimizationEncoder(nn.Module):
         # Get the name of the parent dir of the model_path
         save_dir = model_path.parent
 
-        logging.info(f"Saving weights to {save_dir}")
+        logging.debug(f"Saving weights to {save_dir}")
+        
+        # Save the state dict of the model
         torch.save(
-            self.encoder_model,
+            self.encoder_model.state_dict(),
             model_path,
         )
 

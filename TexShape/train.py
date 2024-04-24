@@ -18,9 +18,7 @@ from src.utils.general import (
     configure_torch_backend,
     set_include_privacy,
     load_experiment_params,
-    load_log_params,
     ExperimentParams,
-    LogParams,
 )
 from src.data.utils import load_experiment_dataset, DatasetParams, load_dataset_params
 from src.dual_optimization_encoder import DualOptimizationEncoder
@@ -39,7 +37,6 @@ def main(config: DictConfig) -> None:
     device_idx: int = config.device_idx
     device = torch.device(f"cuda:{device_idx}" if torch.cuda.is_available() else "cpu")
     experiment_params: ExperimentParams = load_experiment_params(config)
-    log_params: LogParams = load_log_params(config)
     dataset_params: DatasetParams = load_dataset_params(
         experiment_params.dataset_name, config
     )
@@ -78,21 +75,21 @@ def main(config: DictConfig) -> None:
         dataset,
         batch_size=mine_batch_size,
         shuffle=True,
-        num_workers=95,
+        num_workers=32,
         pin_memory=True,
     )
 
     # Initialize dual optimization model
     dual_optimization = DualOptimizationEncoder(
         experiment_params=experiment_params,
-        log_params=log_params,
         encoder_model=encoder_model,
         data_loader=data_loader,
         device=device,
         experiment_dir_path=experiment_dir_path,
+        device_idx=device_idx
     )
 
-    num_batches_final_MI = math.ceil(int(len(data_loader.dataset) / mine_batch_size))
+    num_batches_final_MI = math.ceil(int(len(dataset) / mine_batch_size))
     logging.info(f"Num batches Final MI: {num_batches_final_MI}")
 
     # Train the encoder

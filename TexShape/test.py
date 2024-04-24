@@ -1,10 +1,11 @@
 from pathlib import Path
 from typing import Tuple, Union, List
+import logging
 
-from omegaconf import DictConfig, OmegaConf
-import hydra
 from torch.utils.data import DataLoader
 import torch
+from omegaconf import DictConfig, OmegaConf
+import hydra
 
 from src.utils.general import (
     set_seed,
@@ -15,6 +16,8 @@ from src.utils.general import (
 from src.data.utils import load_experiment_dataset, load_dataset_params
 from src.utils.testing import TestClass
 from src.models.predict_model import SimpleClassifier
+from src.models.models_to_train import Encoder
+from src.models.utils import create_encoder_model
 
 TEST_TYPES = ["RANDOM", "ORIGINAL", "TEXSHAPE", "NOISE"]
 
@@ -143,7 +146,7 @@ def load_test_model(test_type: str, dataset_name: str) -> SimpleClassifier:
     elif test_type == "ORIGINAL":
         model = SimpleClassifier(in_dim=768, hidden_dims=[64], out_dim=2)
     elif test_type == "TEXSHAPE":
-        model = SimpleClassifier(in_dim=128, hidden_dims=[64], out_dim=2)
+        model = SimpleClassifier(in_dim=64, hidden_dims=[64], out_dim=2)
     elif test_type == "NOISE":
         model = SimpleClassifier(in_dim=768, hidden_dims=[64], out_dim=2)
 
@@ -156,8 +159,12 @@ def load_test_model(test_type: str, dataset_name: str) -> SimpleClassifier:
     return model
     #  model.load_state_dict(torch.load(f"models/{test_type}.pth"))
 
+
 @hydra.main(config_path="configs", config_name="test_config", version_base="1.2")
 def main(test_config: DictConfig) -> None:
+    # Configure the logger
+    logging.basicConfig(level=logging.DEBUG)
+    
     # TODO: Fix, not finished
     seed: int = 42
     set_seed(seed)
@@ -181,24 +188,54 @@ def main(test_config: DictConfig) -> None:
     dataset_name = experiment_params.dataset_name
     dataset_params = load_dataset_params(dataset_name, test_experiment_config)
 
-    experiment_type: str = experiment_params.experiment_type  
+    experiment_type: str = experiment_params.experiment_type
     test_types = create_test_types(experiment_type)
     test_types = ["NOISE"]
-    
+
+    test_types = ["TEXSHAPE"]
     for test_type in test_types:
-        model: SimpleClassifier = load_test_model(test_type=test_type, dataset_name=dataset_name)
+        model: SimpleClassifier = load_test_model(
+            test_type=test_type, dataset_name=dataset_name
+        )
 
         train_dataset, validation_dataset = load_experiment_dataset(
             dataset_params=dataset_params, device=device
         )
 
         if test_type == "NOISE":
-            noise_std= 0.1
+            noise_std = 0.1
+            train_dataset = train_dataset.add_noise_embedding(noise_std)
             validation_dataset = validation_dataset.add_noise_embedding(noise_std)
-            
+
         elif test_type == "TEXSHAPE":
-            raise NotImplementedError("TEXSHAPE not implemented yet.")
-        
+            # Load the encoder model
+            encoder_model: Encoder = create_encoder_model(
+                model_name=experiment_params.encoder_params.encoder_model_name,
+                model_params=experiment_params.encoder_params.encoder_model_params,
+            )
+            encoder_model_weights_dir = experiment_dir / "encoder_weights" 
+            
+            # Load the last epoch encoder model weights
+            encoder_model_weights = sorted(
+                encoder_model_weights_dir.glob("model_*.pt"),
+                key=lambda x: int(x.stem.split("_")[-1]),
+            )[-1]
+            
+            # Log the encoder model weights path as a debug message
+            logging.debug(f"Encoder model weights path: {encoder_model_weights}")
+            
+            # Load the encoder model weights
+            encoder_model = torch.load(encoder_model_weights)
+            encoder_model.eval()
+            encoder_model.to(device)
+            
+            # Pass the embeddings through the encoder model
+            train_dataset_embeddings = encoder_model(train_dataset.embeddings.to(device))
+            validation_dataset_embeddings = encoder_model(validation_dataset.embeddings.to(device))
+            
+            train_dataset.embeddings = train_dataset_embeddings
+            validation_dataset.embeddings = validation_dataset_embeddings
+            
         # Create data loaders
         train_data_loader = DataLoader(
             dataset=train_dataset, batch_size=batch_size, shuffle=True
@@ -237,6 +274,3 @@ def main(test_config: DictConfig) -> None:
 
 if __name__ == "__main__":
     main()
-
-
-

@@ -1,7 +1,8 @@
-import torch.nn as nn
-import torch
 from abc import ABC, abstractmethod
 from typing import List, Iterable
+
+import torch.nn as nn
+import torch
 
 
 # Encoder class
@@ -19,7 +20,7 @@ class Encoder(nn.Module, ABC):
 
 class DenseEncoder(nn.Module):
     # This is the function that its parameters are optimized for encoding
-    def __init__(self, in_dim, *hidden_dims, out_dim, dropout_rate=0.1):
+    def __init__(self, in_dim, hidden_dims, out_dim, dropout_rate=0.1):
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
@@ -33,7 +34,6 @@ class DenseEncoder(nn.Module):
             prev_size = hidden_dim
 
         layers.append(nn.Linear(prev_size, out_dim))
-
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -87,6 +87,7 @@ class DenseEncoder3(Encoder):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.main(x)
 
+
 class FlexibleDenseEncoder(Encoder):
     def __init__(self, in_dim: int, hidden_dims: Iterable[int], out_dim: int) -> None:
         super(FlexibleDenseEncoder, self).__init__()
@@ -109,6 +110,7 @@ class FlexibleDenseEncoder(Encoder):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.main(x)
 
+
 # Encoder class
 class MI_CalculatorModel(nn.Module, ABC):
     def __init__(self):
@@ -119,6 +121,7 @@ class MI_CalculatorModel(nn.Module, ABC):
     @abstractmethod
     def forward(self, x: torch.Tensor):
         pass
+
 
 class MINE_Model(MI_CalculatorModel):
     def __init__(self, in_dim, hidden_dims):

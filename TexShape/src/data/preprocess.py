@@ -2,10 +2,10 @@ from pathlib import Path
 from typing import List, Dict
 
 import torch
-from sentence_transformers import SentenceTransformer
-from datasets import load_dataset
 import transformers
 from transformers import BertTokenizer, BertModel, AutoTokenizer
+from sentence_transformers import SentenceTransformer
+from datasets import load_dataset
 
 
 def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:

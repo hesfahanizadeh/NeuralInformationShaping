@@ -1,15 +1,17 @@
-from typing import Tuple
-import torch
-from torch import nn
-from torch.utils.data import DataLoader
-from sklearn.metrics import roc_curve, auc
-from pytorch_lightning import seed_everything
-import numpy as np
 import datetime
 from abc import ABC
 from typing import Union
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Tuple
+
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from pytorch_lightning import seed_everything
+from sklearn.metrics import roc_curve, auc
+
+import numpy as np
 from omegaconf import DictConfig
 
 
@@ -58,16 +60,6 @@ class EncoderParams:
     encoder_model_params: dict
     num_enc_epochs: int = 10
     
-
-
-@dataclass
-class LogParams:
-    log_dir_path: Path = field(default="")
-    log_file_path: Path = field(default="")
-
-    def __post_init__(self):
-        self.log_dir_path = Path(self.log_dir_path)
-        self.log_file_path = Path(self.log_file_path)
 
 
 @dataclass
@@ -140,7 +132,3 @@ def load_experiment_params(config: DictConfig) -> ExperimentParams:
     )
     return experiment_params
 
-
-def load_log_params(config: DictConfig) -> LogParams:
-    log_params = LogParams(**config.simulation.log)
-    return log_params

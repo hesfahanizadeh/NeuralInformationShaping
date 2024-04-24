@@ -15,6 +15,7 @@ scikit-learn = "^1.4.2"
 sentence-transformers = "^2.7.0"
 datasets = "^2.19.0"
 tensorboard = "^2.16.2"
+seaborn = "^0.13.2"
 
 [build-system]
 requires = ["poetry-core"]
