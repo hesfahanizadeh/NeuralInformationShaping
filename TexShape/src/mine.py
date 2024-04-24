@@ -115,6 +115,8 @@ class MutualInformationEstimator(pl.LightningModule):
 
         loss = self.energy_loss(x, z)
         mi = -loss
+        
+        
         tensorboard_logs = {"loss": loss, "mi": mi}
         tqdm_dict = {"loss_tqdm": loss, "mi": mi}
         self.last_mi = mi
@@ -126,23 +128,34 @@ class MutualInformationEstimator(pl.LightningModule):
         self.logger.log_metrics(tensorboard_logs, self.current_epoch)
 
         return {**tensorboard_logs, "log": tensorboard_logs, "progress_bar": tqdm_dict}
-
-    def optimizer_step(
-        self,
-        epoch: int,
-        batch_idx: int,
-        optimizer: torch.optim.Optimizer,
-        optimizer_idx: int = 0,
-        optimizer_closure=None,
-        on_tpu: bool = False,
-        using_native_amp: bool = False,
-        using_lbfgs: bool = False,
-    ) -> None:
-        if batch_idx % self.gradient_batch_size == 0:
+    
+    def train_dataloader(self):
+        return self.train_loader
+    
+def optimizer_step(
+    self,
+    epoch: int,
+    batch_idx: int,
+    optimizer: torch.optim.Optimizer,
+    optimizer_idx: int = 0,
+    optimizer_closure=None,
+    on_tpu: bool = False,
+    using_native_amp: bool = False,
+    using_lbfgs: bool = False,
+) -> None:
+    if batch_idx % self.gradient_batch_size == 0:
+        # Ensure closure is not None before attempting to use it
+        if optimizer_closure is not None:
             optimizer.step(closure=optimizer_closure)
         else:
-            # REFACTOR: Bad code, assumes optimizer closure always non-null
+            optimizer.step()  # Default step if no closure is provided
+    else:
+        # Optionally, you might decide to call the closure to update internal states or logs,
+        # but this should be done carefully and documented why it's needed.
+        if optimizer_closure is not None:
             optimizer_closure()
+        # No step is performed here since it's not the right batch index for stepping.
+
 
     def optimizer_zero_grad(
         self, epoch: int, batch_idx: int, optimizer, optimizer_idx: int

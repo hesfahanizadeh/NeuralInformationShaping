@@ -42,11 +42,11 @@ class DualOptimizationEncoder(nn.Module):
 
         self.experiment_params: ExperimentParams = experiment_params
         self.mine_params: MINE_Params = experiment_params.mine_params
-        
+
         # Set the mine batch size if -1 passed
         if self.mine_params.mine_batch_size == -1:
             self.mine_params.mine_batch_size = len(self.dataset)
-            
+
         self.encoder_params: EncoderParams = experiment_params.encoder_params
         self.experiment_dir_path: Path = experiment_dir_path
 
@@ -208,7 +208,7 @@ class DualOptimizationEncoder(nn.Module):
             mine_batch_size=self.mine_params.mine_batch_size,
             device=self.device,
             gradient_batch_size=gradient_batch_size,
-            log_dir_path=self.log_params.log_dir_path
+            log_dir_path=self.log_params.log_dir_path,
         )
 
         # TODO: Fix this part
@@ -237,7 +237,7 @@ class DualOptimizationEncoder(nn.Module):
                 max_epochs=self.mine_params.mine_epochs_utility,
                 logger=logger_utility,
                 accelerator="gpu",
-                devices="1"
+                devices="1",
             )
             trainer_utility.fit(model_MINE_utility)
 
@@ -301,7 +301,7 @@ class DualOptimizationEncoder(nn.Module):
                 max_epochs=self.mine_params.mine_epochs_privacy,
                 logger=logger_privacy,
                 accelerator="gpu",
-                devices="1"
+                devices="1",
             )
             trainer.fit(model_MINE_privacy)
 
@@ -395,8 +395,13 @@ class DualOptimizationEncoder(nn.Module):
 
             # if include_privacy:
             #     self.privacy_scores.append(mi_privacy.detach().cpu())
-            if self.encoder_params.enc_save_dir_path is not None:
-                self._save_encoder_weights(epoch)
+            enc_save_dir = self.experiment_dir_path / "encoder_weights"
+
+            if not enc_save_dir.exists():
+                enc_save_dir.mkdir(parents=True, exist_ok=True)
+
+            enc_save_path = enc_save_dir / f"model_{epoch}.pt"
+            self._save_encoder_weights(enc_save_path)
 
             logging.info(
                 f"====> Epoch: {epoch} Utility MI I(T(x); L(x)): {mi_utility:.8f}"
@@ -420,36 +425,28 @@ class DualOptimizationEncoder(nn.Module):
         )
         return stats_network
 
-    def _save_encoder_weights(self, epoch: int) -> None:
-        enc_save_dir_path: Path = self.encoder_params.enc_save_dir_path
-
+    def _save_encoder_weights(self, model_path: Path) -> None:
         # Don't save the state dict since that doesn't include the model parameters + their gradients
         # Options were to save entire model or optimizer's state dict:
         # https://discuss.pytorch.org/t/how-to-save-the-requires-grad-state-of-the-weights/52906/6
-        logging.info(f"Saving weights to {enc_save_dir_path}")
 
-        # Check if the enc_save_path exists
-        if not enc_save_dir_path.exists():
-            enc_save_dir_path.mkdir(parents=True, exist_ok=True)
+        # Get the name of the parent dir of the model_path
+        save_dir = model_path.parent
 
-        # TODO: Fix this part
-        encoder_model_path = (
-            enc_save_dir_path
-            / f"{self.experiment_params.experiment_name}-epoch={epoch}.pt"
-        )
+        logging.info(f"Saving weights to {save_dir}")
         torch.save(
             self.encoder_model,
-            encoder_model_path,
+            model_path,
         )
 
-        optimizer_path = (
-            enc_save_dir_path
-            / f"[optimizer] {self.experiment_params.experiment_name}-epoch={epoch}.pt"
-        )
-        torch.save(
-            self.encoder_optimizer.state_dict(),
-            optimizer_path,
-        )
+        # optimizer_path = (
+        #     enc_save_dir_path
+        #     / f"[optimizer] {self.experiment_params.experiment_name}-epoch={epoch}.pt"
+        # )
+        # torch.save(
+        #     self.encoder_optimizer.state_dict(),
+        #     optimizer_path,
+        # )
 
     def save_mi_scores(self, epoch: int) -> None:
         raise NotImplementedError

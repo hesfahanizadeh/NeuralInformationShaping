@@ -78,7 +78,7 @@ def main(config: DictConfig) -> None:
         dataset,
         batch_size=mine_batch_size,
         shuffle=True,
-        num_workers=4,
+        num_workers=95,
         pin_memory=True,
     )
 

@@ -8,7 +8,7 @@ import torch
 from omegaconf import DictConfig
 
 from src.utils.general import SST2_Params, MNLI_Params, DatasetParams
-from src.data.utils import preprocess_sst2, preprocess_mnli, preprocess_corona
+from src.data.preprocess import preprocess_sst2, preprocess_mnli, preprocess_corona
 
 
 class TexShapeDataset(torch.utils.data.Dataset):
