@@ -3,7 +3,7 @@ defaults:
   - encoder: main
   - simulation: main
 
-device_idx: 1
+device_idx: 2
 
 hydra:
   run:

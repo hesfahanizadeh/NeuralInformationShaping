@@ -61,7 +61,7 @@ class DualOptimizationEncoder(nn.Module):
 
         self.num_workers: int = 0  # experiment_params.num_workers
         self.mine_trainer_patience: int = 100
-        logging.info(f"Device: {self.device}")
+        logging.info("Device: %s", self.device)
 
         self.epoch = 0
 

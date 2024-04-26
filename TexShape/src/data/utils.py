@@ -24,7 +24,9 @@ class TexShapeDataset(torch.utils.data.Dataset):
         self.label1, self.label2 = self.label2, self.label1
 
     def create_noise_embedding(self, stddev) -> torch.Tensor:
-        return torch.normal(0, stddev, size=self.embedding_shape)
+        return torch.normal(
+            0, stddev, size=self.embedding_shape
+        )  # pylint: disable=not-callable
 
     def add_noise_embedding(self, stddev) -> None:
         noise = self.create_noise_embedding(stddev)
@@ -90,7 +92,7 @@ def load_experiment_dataset(
 
         train_dataset: MNLI_Dataset
         validation_dataset: MNLI_Dataset
-        train_dataset, validation_dataset = load_mnli(data_path=data_loc)
+        train_dataset, validation_dataset = load_mnli(mnli_data_path=data_loc)
 
         train_premise = train_dataset.premise
         train_hypothesis = train_dataset.hypothesis
@@ -104,8 +106,8 @@ def load_experiment_dataset(
 
         combination_type = mnli_dataset_params.combination_type
         if combination_type == "concat":
-            train_embeddings = torch.cat((train_premise, train_hypothesis), dim=-1)
-            validation_embeddings = torch.cat(
+            train_embeddings = torch.cat((train_premise, train_hypothesis), dim=-1)  
+            validation_embeddings = torch.cat( 
                 (validation_premise, validation_hypothesis), dim=-1
             )
 
@@ -153,13 +155,14 @@ def load_sst2(
     Load the SST-2 dataset and split it into train and validation sets.
 
     :param sst2_data_path: The path to the SST-2 dataset.
-    :param train_test_split_ratio: The ratio to split the dataset into train and validation sets. Default is 0.9.
+    :param train_test_split_ratio: The ratio to split the dataset into train and validation sets. 
+    Default is 0.9.
 
     :return: A tuple containing the train and validation datasets.
     """
     if isinstance(sst2_data_path, str):
         sst2_data_path = Path(sst2_data_path)
-        
+
     train_embeddings = torch.load(sst2_data_path / "embeddings.pt")
     train_sentiment_labels = torch.load(sst2_data_path / "sentiment_labels.pt")
     train_sent_len_labels = torch.load(sst2_data_path / "sent_len_labels.pt")

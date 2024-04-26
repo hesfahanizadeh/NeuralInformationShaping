@@ -34,7 +34,7 @@ experiment:
 
 
 batch_size: 32
-device_idx: 0
+device_idx: 2
 experiments_dir: "exps/training"
 experiment_date: ""
 

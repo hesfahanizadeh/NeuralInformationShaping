@@ -1,11 +1,17 @@
 from pathlib import Path
-from typing import List, Dict
+from typing import List
 
 import torch
 import transformers
 from transformers import BertTokenizer, BertModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer
 from datasets import load_dataset
+
+import pandas as pd
+from tqdm import tqdm
+
+RAW_DATA_PATH = Path("data/raw")
+PROCESSED_DATA_PATH = Path("data/processed")
 
 
 def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
@@ -29,7 +35,8 @@ def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
         # Label sentence_length
         if sentence_length <= sent_len_threshold:
             sent_len_label = 0
-        sent_len_label = 1
+        else:
+            sent_len_label = 1
         return {"sent_len": sent_len_label}
 
     dataset = dataset.map(get_sent_len)
@@ -119,7 +126,6 @@ def preprocess_mnli(
 
 def preprocess_corona(
     device: str,
-    data_path: Path = Path("data/processed/corona"),
 ) -> None:
     """Load the Corona dataset
     TODO: Fix this function
@@ -131,37 +137,85 @@ def preprocess_corona(
         Tuple[ Tuple[torch.Tensor, torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor], ]:
         Tuple containing the training and validation data
     """
-    raise NotImplementedError("Not implemented yet.")
-    # Load the training data
-    # TODO: Fix type hinting
-    train_data_path = data_path / "train.pt"
-    validation_data_path = data_path / "validation.pt"
-    train_dataset: Dict = torch.load(train_data_path)
+    train_raw_data = RAW_DATA_PATH / "corona" / "train.csv"
+    validation_raw_data = RAW_DATA_PATH / "corona" / "validation.csv"
+
+    # Read the raw data as a dictionary
+    train_df = pd.read_csv(train_raw_data).to_dict(orient="records")
+    validation_df = pd.read_csv(validation_raw_data).to_dict(orient="records")
+
+    model_name: str = "all-mpnet-base-v2"
+
+    # Load SentenceTransformer model
+    model = load_mpnet_model(model_name=model_name, device=device)
+
+    train_dict = {}
+    validation_dict = {}
+
+    for i, sample in tqdm(train_df.iterrows()):
+        text = sample["text_clean"]
+        sentiment_label = sample["Sentiment"]
+        country_label = sample["Country"]
+        text_embedding = model.encode(
+            text, convert_to_tensor=True, device="cuda", batch_size=128
+        ).cpu()
+
+        train_dict[i] = {
+            "encoded_premise": text_embedding,
+            "sentiment_label": sentiment_label,
+            "country_label": country_label,
+        }
+
+    for i, sample in tqdm(validation_df.iterrows()):
+        text = sample["text_clean"]
+        sentiment_label = sample["Sentiment"]
+        country_label = sample["Country"]
+        text_embedding = model.encode(
+            text, convert_to_tensor=True, device="cuda", batch_size=128
+        ).cpu()
+
+        validation_dict[i] = {
+            "encoded_premise": text_embedding,
+            "sentiment_label": sentiment_label,
+            "country_label": country_label,
+        }
+
+    train_data_path = PROCESSED_DATA_PATH / "corona" / "train"
+    validation_data_path = PROCESSED_DATA_PATH / "corona" / "validation"
 
     # Defining Input and Target Tensors for the training data
-    train_inputs = torch.stack([v["encoded_text"] for v in train_dataset.values()])
-    train_targets_public = torch.stack(
-        [torch.tensor(v["country_label"]) for v in train_dataset.values()]
+    train_embeddings = torch.stack([v["encoded_text"] for v in train_dict.values()])
+    train_country_label = torch.stack(
+        [torch.tensor(v["country_label"]) for v in train_dict.values()]
     )
 
     # Load the private labels for the training data
-    train_targets_private = torch.stack(
-        [torch.tensor(v["sentiment_label"]) for v in train_dataset.values()]
+    train_sentiment_label = torch.stack(
+        [torch.tensor(v["sentiment_label"]) for v in train_dict.values()]
     )
 
-    # Load the validation data
-    val_dataset: Dict = torch.load(validation_data_path)
-
     # Defining Input and Target Tensors for the validation data
-    validation_inputs = torch.stack([v["encoded_text"] for v in val_dataset.values()])
-    validation_targets_public = torch.stack(
-        [torch.tensor(v["country_label"]) for v in val_dataset.values()]
+    validation_embeddings = torch.stack(
+        [v["encoded_text"] for v in validation_dict.values()]
+    )
+    validation_country_label = torch.stack(
+        [torch.tensor(v["country_label"]) for v in validation_dict.values()]
     )
 
     # Load the private labels for the validation data
-    validation_targets_private = torch.stack(
-        [torch.tensor(v["sentiment_label"]) for v in val_dataset.values()]
+    validation_sentiment_label = torch.stack(
+        [torch.tensor(v["sentiment_label"]) for v in validation_dict.values()]
     )
+
+    # Save the training data
+    torch.save(train_embeddings, train_data_path / "embeddings.pt")
+    torch.save(train_country_label, train_data_path / "country_labels.pt")
+    torch.save(train_sentiment_label, train_data_path / "sentiment_labels.pt")
+
+    # Save the validation data
+    torch.save(validation_embeddings, validation_data_path / "embeddings.pt")
+    torch.save(validation_country_label, validation_data_path / "country_labels.pt")
+    torch.save(validation_sentiment_label, validation_data_path / "sentiment_labels.pt")
 
 
 def extract_embeddings(

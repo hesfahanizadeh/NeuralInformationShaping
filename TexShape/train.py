@@ -1,3 +1,5 @@
+"""Train the encoder model using dual optimization."""
+
 # Standard library imports
 import math
 import logging
@@ -26,13 +28,14 @@ from src.dual_optimization_encoder import DualOptimizationEncoder
 
 @hydra.main(config_path="configs", config_name="config.yaml", version_base="1.2")
 def main(config: DictConfig) -> None:
+    """Main function to train the encoder model using dual optimization."""
     logging.basicConfig(level=logging.INFO)
 
     # Set random seed for reproducibility
     seed = 42
     set_seed(seed)
     configure_torch_backend()
-    logging.info(f"Seed: {seed}")
+    logging.info("Seed: %s", seed)
 
     device_idx: int = config.device_idx
     device = torch.device(f"cuda:{device_idx}" if torch.cuda.is_available() else "cpu")
@@ -43,7 +46,7 @@ def main(config: DictConfig) -> None:
 
     # TODO: Fix here
     experiment_dir_path: Path = Path(HydraConfig.get().runtime.output_dir)
-    logging.info(f"Experiment Directory Path: {experiment_dir_path}")
+    logging.info("Experiment Directory Path: %s", experiment_dir_path)
     logging.info(experiment_params)
     logging.info(dataset_params)
 
@@ -61,14 +64,14 @@ def main(config: DictConfig) -> None:
         device=device,
     )
 
-    # Set if privacy goal is included
+    # Set if privacy goal is included TODO: Delete this handle from the params of the encoder
     include_privacy: bool = set_include_privacy(experiment_params.experiment_type)
 
     # Set the mine batch size
     if experiment_params.mine_params.mine_batch_size == -1:
         mine_batch_size = len(dataset)
 
-    logging.info(f"Mine Batch Size: {mine_batch_size}")
+    logging.info("Mine Batch Size: %s", mine_batch_size)
 
     # Create a dataloader
     data_loader = DataLoader(
@@ -89,12 +92,12 @@ def main(config: DictConfig) -> None:
         device_idx=device_idx
     )
 
-    num_batches_final_MI = math.ceil(int(len(dataset) / mine_batch_size))
-    logging.info(f"Num batches Final MI: {num_batches_final_MI}")
+    num_batches_final_mi = math.ceil(int(len(dataset) / mine_batch_size))
+    logging.info("Num batches Final MI: %s", num_batches_final_mi)
 
     # Train the encoder
     dual_optimization.train_encoder(
-        num_batches_final_MI=num_batches_final_MI,
+        num_batches_final_MI=num_batches_final_mi,
         include_privacy=include_privacy,
         include_utility=True,
         gradient_batch_size=1,
@@ -102,4 +105,4 @@ def main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main() # pylint: disable=no-value-for-parameter
