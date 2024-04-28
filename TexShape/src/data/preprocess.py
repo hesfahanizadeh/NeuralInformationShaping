@@ -11,12 +11,11 @@ import pandas as pd
 from tqdm import tqdm
 
 RAW_DATA_PATH = Path("data/raw")
-PROCESSED_DATA_PATH = Path("data/processed")
+SST2_SENT_LEN_THRESHOLD = 8
 
 
 def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
     model_name: str = "all-mpnet-base-v2"
-    sent_len_threshold: int = 8
 
     tokenizer = load_mpnet_tokenizer()
     model = load_mpnet_model(model_name=model_name, device=device)
@@ -33,7 +32,7 @@ def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
         tokenized_sentence = tokenizer.tokenize(example["sentence"])
         sentence_length = len(tokenized_sentence)
         # Label sentence_length
-        if sentence_length <= sent_len_threshold:
+        if sentence_length <= SST2_SENT_LEN_THRESHOLD:
             sent_len_label = 0
         else:
             sent_len_label = 1
@@ -41,6 +40,7 @@ def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
 
     dataset = dataset.map(get_sent_len)
 
+    # pylint: disable=no-member
     sentiment_labels = torch.tensor(dataset["label"]).detach().cpu()
     sent_len_labels = torch.tensor(dataset["sent_len"]).detach().cpu()
 
@@ -54,7 +54,7 @@ def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
 
 
 def preprocess_mnli(
-    device: str,
+    device: torch.device,
     data_path: Path = Path("data/processed/mnli"),
 ) -> None:
     model_name: str = "all-mpnet-base-v2"
@@ -71,9 +71,9 @@ def preprocess_mnli(
         lambda example: example["genre"] in desired_genres
     )
 
-    train_label1 = torch.tensor(train_filtered_dataset["label"])
+    train_label1 = torch.tensor(train_filtered_dataset["label"])  # pylint: disable=no-member
     train_label2 = train_filtered_dataset["genre"]
-    train_label2 = torch.tensor(
+    train_label2 = torch.tensor(  # pylint: disable=no-member
         [0 if label == "government" else 1 for label in train_label2]
     )
 
@@ -90,11 +90,11 @@ def preprocess_mnli(
         lambda example: example["genre"] in desired_genres
     )
 
-    validation_label1 = torch.tensor(validation_filtered_dataset["label"])
+    validation_label1 = torch.tensor(validation_filtered_dataset["label"])  # pylint: disable=no-member
 
     # Obtain private targets
     validation_label2 = validation_filtered_dataset["genre"]
-    validation_label2 = torch.tensor(
+    validation_label2 = torch.tensor(  # pylint: disable=no-member
         [0 if label == "government" else 1 for label in validation_label2]
     )
 
@@ -106,43 +106,49 @@ def preprocess_mnli(
         validation_filtered_dataset["hypothesis"], model, device=device
     )
 
-    torch.save(train_premise_embeddings, data_path / "train_premise_embeddings.pt")
+    train_data_path = data_path / "train"
+    validation_data_path = data_path / "validation"
+
+    # Check if path exists
+    if not train_data_path.exists():
+        train_data_path.mkdir(parents=True, exist_ok=True)
+
+    if not validation_data_path.exists():
+        validation_data_path.mkdir(parents=True, exist_ok=True)
+
+    torch.save(train_premise_embeddings, train_data_path / "premise_embeddings.pt")
     torch.save(
-        train_hypothesis_embeddings, data_path / "train_hypothesis_embeddings.pt"
+        train_hypothesis_embeddings, train_data_path / "hypothesis_embeddings.pt"
     )
-    torch.save(train_label1, data_path / "train_label1.pt")
-    torch.save(train_label2, data_path / "train_label2.pt")
+    torch.save(train_label1, train_data_path / "label.pt")
+    torch.save(train_label2, train_data_path / "genre_label.pt")
 
     torch.save(
-        validation_premise_embeddings, data_path / "validation_premise_embeddings.pt"
+        validation_premise_embeddings, validation_data_path / "premise_embeddings.pt"
     )
     torch.save(
         validation_hypothesis_embeddings,
-        data_path / "validation_hypothesis_embeddings.pt",
+        validation_data_path / "hypothesis_embeddings.pt",
     )
-    torch.save(validation_label1, data_path / "validation_label1.pt")
-    torch.save(validation_label2, data_path / "validation_label2.pt")
+    torch.save(validation_label1, validation_data_path / "label.pt")
+    torch.save(validation_label2, validation_data_path / "genre_label.pt")
 
 
 def preprocess_corona(
-    device: str,
+    device: torch.device,
+    data_path: Path = Path("data/processed/corona"),
 ) -> None:
-    """Load the Corona dataset
-    TODO: Fix this function
-    Args:
-        train_data_path (Path): Path object to the training data
-        validation_data_path (Path): Path object to the validation data
-
-    Returns:
-        Tuple[ Tuple[torch.Tensor, torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor], ]:
-        Tuple containing the training and validation data
+    """
+    Create the processed data for the Corona dataset
+    :param: device: int: Device to use for processing
+    :return: None
     """
     train_raw_data = RAW_DATA_PATH / "corona" / "train.csv"
     validation_raw_data = RAW_DATA_PATH / "corona" / "validation.csv"
 
     # Read the raw data as a dictionary
-    train_df = pd.read_csv(train_raw_data).to_dict(orient="records")
-    validation_df = pd.read_csv(validation_raw_data).to_dict(orient="records")
+    train_df = pd.read_csv(train_raw_data)
+    validation_df = pd.read_csv(validation_raw_data)
 
     model_name: str = "all-mpnet-base-v2"
 
@@ -157,11 +163,16 @@ def preprocess_corona(
         sentiment_label = sample["Sentiment"]
         country_label = sample["Country"]
         text_embedding = model.encode(
-            text, convert_to_tensor=True, device="cuda", batch_size=128
+            text,
+            convert_to_tensor=True,
+            device=device,
+            batch_size=128,
+            normalize_embeddings=True,
+            show_progress_bar=False,
         ).cpu()
 
         train_dict[i] = {
-            "encoded_premise": text_embedding,
+            "embedding": text_embedding,
             "sentiment_label": sentiment_label,
             "country_label": country_label,
         }
@@ -171,20 +182,33 @@ def preprocess_corona(
         sentiment_label = sample["Sentiment"]
         country_label = sample["Country"]
         text_embedding = model.encode(
-            text, convert_to_tensor=True, device="cuda", batch_size=128
+            text,
+            convert_to_tensor=True,
+            device=device,
+            batch_size=128,
+            normalize_embeddings=True,
+            show_progress_bar=False,
         ).cpu()
 
         validation_dict[i] = {
-            "encoded_premise": text_embedding,
+            "embedding": text_embedding,
             "sentiment_label": sentiment_label,
             "country_label": country_label,
         }
 
-    train_data_path = PROCESSED_DATA_PATH / "corona" / "train"
-    validation_data_path = PROCESSED_DATA_PATH / "corona" / "validation"
+    train_data_path = data_path / "train"
+    validation_data_path = data_path / "validation"
+
+    # Check if path exists
+    if not train_data_path.exists():
+        train_data_path.mkdir(parents=True, exist_ok=True)
+
+    if not validation_data_path.exists():
+        validation_data_path.mkdir(parents=True, exist_ok=True)
 
     # Defining Input and Target Tensors for the training data
-    train_embeddings = torch.stack([v["encoded_text"] for v in train_dict.values()])
+    # pylint: disable=no-member
+    train_embeddings = torch.stack([v["embedding"] for v in train_dict.values()])
     train_country_label = torch.stack(
         [torch.tensor(v["country_label"]) for v in train_dict.values()]
     )
@@ -196,7 +220,7 @@ def preprocess_corona(
 
     # Defining Input and Target Tensors for the validation data
     validation_embeddings = torch.stack(
-        [v["encoded_text"] for v in validation_dict.values()]
+        [v["embedding"] for v in validation_dict.values()]
     )
     validation_country_label = torch.stack(
         [torch.tensor(v["country_label"]) for v in validation_dict.values()]

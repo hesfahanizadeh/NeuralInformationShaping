@@ -1,2 +1,3 @@
+dataset_name: "mnli"
 combination_type: "premise_only" # choices = ["concat", "join", "premise_only"]
-dataset_loc: "data/processed/mnli"
+dataset_loc: "./data/processed/mnli"

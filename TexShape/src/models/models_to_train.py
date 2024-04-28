@@ -18,10 +18,13 @@ class Encoder(nn.Module, ABC):
         pass
 
 
-class DenseEncoder(nn.Module):
-    # This is the function that its parameters are optimized for encoding
+class DenseEncoder(Encoder):
+    """
+    This class represents a dense encoder module.
+    """
     def __init__(self, in_dim, hidden_dims, out_dim, dropout_rate=0.1):
         super().__init__()
+        self.dropout_rate = dropout_rate
         self.in_dim = in_dim
         self.out_dim = out_dim
 

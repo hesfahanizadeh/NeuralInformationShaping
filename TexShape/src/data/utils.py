@@ -5,10 +5,17 @@ from typing import Tuple, Union
 # Third-party library imports
 import torch
 
-from omegaconf import DictConfig
-
-from src.utils.general import SST2_Params, MNLI_Params, DatasetParams
+from src.utils.config import (
+    # SST2Params,
+    MNLIParams,
+    DatasetParams,
+    DatasetName,
+    MNLICombinationType,
+    ExperimentType,
+)
 from src.data.preprocess import preprocess_sst2, preprocess_mnli, preprocess_corona
+
+SST2_TRAIN_TEST_SPLIT_RATIO = 0.9
 
 
 class TexShapeDataset(torch.utils.data.Dataset):
@@ -24,9 +31,7 @@ class TexShapeDataset(torch.utils.data.Dataset):
         self.label1, self.label2 = self.label2, self.label1
 
     def create_noise_embedding(self, stddev) -> torch.Tensor:
-        return torch.normal(
-            0, stddev, size=self.embedding_shape
-        )  # pylint: disable=not-callable
+        return torch.normal(0, stddev, size=self.embedding_shape)  # pylint: disable=no-member
 
     def add_noise_embedding(self, stddev) -> None:
         noise = self.create_noise_embedding(stddev)
@@ -73,22 +78,22 @@ def load_experiment_dataset(
     if not data_loc.exists():
         data_loc.mkdir(parents=True, exist_ok=True)
 
-    if dataset_name == "sst2":
-        sst2_dataset_params: SST2_Params = dataset_params
+    if dataset_name == DatasetName.SST2:
         # Check if path exists
-        train_embedding_path = data_loc / "embeddings.pt"
+        train_embedding_path: Path = data_loc / "embeddings.pt"
 
         if not train_embedding_path.exists():
             preprocess_sst2(device=device, data_path=data_loc)
 
-        train_test_split_ratio: str = sst2_dataset_params.train_test_split_ratio
-        train_dataset, validation_dataset = load_sst2(
-            sst2_data_path=data_loc, train_test_split_ratio=train_test_split_ratio
-        )
+        train_dataset, validation_dataset = load_sst2(sst2_data_path=data_loc)
 
-    elif dataset_name == "mnli":
+    elif dataset_name == DatasetName.MNLI:
+        train_embedding_path: Path = data_loc / "train" / "premise_embeddings.pt"
+        if not train_embedding_path.exists():
+            preprocess_mnli(device=device)
+
         train_dataset: MNLI_Dataset
-        mnli_dataset_params: MNLI_Params = dataset_params
+        mnli_dataset_params: MNLIParams = dataset_params
 
         train_dataset: MNLI_Dataset
         validation_dataset: MNLI_Dataset
@@ -104,25 +109,28 @@ def load_experiment_dataset(
         validation_label1 = validation_dataset.label1
         validation_label2 = validation_dataset.label2
 
+        # Get the combination type
         combination_type = mnli_dataset_params.combination_type
-        if combination_type == "concat":
-            train_embeddings = torch.cat((train_premise, train_hypothesis), dim=-1)  
-            validation_embeddings = torch.cat( 
+
+        # Combine the premise and hypothesis embeddings
+        if combination_type == MNLICombinationType.CONCAT:
+            train_embeddings = torch.cat((train_premise, train_hypothesis), dim=-1)  # pylint: disable=no-member
+            validation_embeddings = torch.cat(  # pylint: disable=no-member
                 (validation_premise, validation_hypothesis), dim=-1
             )
 
-        elif combination_type == "join":
-            train_embeddings = torch.cat((train_premise, train_hypothesis), dim=0)
-            train_label2 = torch.cat((train_label2, train_label2), dim=0)
-            train_label1 = torch.cat((train_label1, train_label1), dim=0)
+        elif combination_type == MNLICombinationType.JOIN:
+            train_embeddings = torch.cat((train_premise, train_hypothesis), dim=0)  # pylint: disable=no-member
+            train_label2 = torch.cat((train_label2, train_label2), dim=0)  # pylint: disable=no-member
+            train_label1 = torch.cat((train_label1, train_label1), dim=0)  # pylint: disable=no-member
 
-            validation_embeddings = torch.cat(
+            validation_embeddings = torch.cat(  # pylint: disable=no-member
                 (validation_premise, validation_hypothesis), dim=0
             )
-            validation_label2 = torch.cat((validation_label2, validation_label2), dim=0)
-            validation_label1 = torch.cat((validation_label1, validation_label1), dim=0)
+            validation_label2 = torch.cat((validation_label2, validation_label2), dim=0)  # pylint: disable=no-member
+            validation_label1 = torch.cat((validation_label1, validation_label1), dim=0)  # pylint: disable=no-member
 
-        elif combination_type == "premise_only":
+        elif combination_type == MNLICombinationType.PREMISE_ONLY:
             train_embeddings = train_premise
             validation_embeddings = validation_premise
 
@@ -131,32 +139,32 @@ def load_experiment_dataset(
             validation_embeddings, validation_label1, validation_label2
         )
 
-    elif dataset_name == "corona":
-        raise NotImplementedError("Corona dataset not implemented")
-        data_loc = data_loc / "corona"
-        train_dataset, _ = load_corona(data_path=data_loc)
+    elif dataset_name == DatasetName.CORONA:
+        train_embedding_path: Path = data_loc / "train" / "embeddings.pt"
+        if not train_embedding_path.exists():
+            preprocess_corona(device=device)
+
+        train_dataset, validation_dataset = load_corona(data_path=data_loc)
     else:
         raise ValueError("Invalid dataset")
 
+    # train_dataset.embeddings = train_dataset.embeddings.cpu()
+    # train_dataset.label1 = train_dataset.label1.cpu()
+    # train_dataset.label2 = train_dataset.label2.cpu()
+
+    # validation_dataset.embeddings = validation_dataset.embeddings.cpu()
+    # validation_dataset.label1 = validation_dataset.label1.cpu()
+    # validation_dataset.label2 = validation_dataset.label2.cpu()
     return train_dataset, validation_dataset
 
 
-def load_dataset_params(dataset_name: str, config: DictConfig) -> DatasetParams:
-    dataset_params = config.dataset
-    if dataset_name == "sst2":
-        return SST2_Params(**dataset_params)
-    raise ValueError("Invalid dataset name")
-
-
 def load_sst2(
-    sst2_data_path: Union[Path, str], train_test_split_ratio: float = 0.9
+    sst2_data_path: Union[Path, str],
 ) -> Tuple[TexShapeDataset, TexShapeDataset]:
     """
     Load the SST-2 dataset and split it into train and validation sets.
 
     :param sst2_data_path: The path to the SST-2 dataset.
-    :param train_test_split_ratio: The ratio to split the dataset into train and validation sets. 
-    Default is 0.9.
 
     :return: A tuple containing the train and validation datasets.
     """
@@ -172,39 +180,53 @@ def load_sst2(
         label1=train_sentiment_labels,
         label2=train_sent_len_labels,
     )
-    # Train Test Split
-    train_size = int(train_test_split_ratio * len(dataset))
+    train_size = int(SST2_TRAIN_TEST_SPLIT_RATIO * len(dataset))
     test_size = len(dataset) - train_size
 
-    train_dataset, validation_dataset = torch.utils.data.random_split(
+    train_indices, validation_indices = torch.utils.data.random_split(
         dataset, [train_size, test_size]
     )
 
-    train_dataset = train_dataset.dataset
-    validation_dataset = validation_dataset.dataset
+    # Function to extract data based on indices from the original dataset
+    def create_subset_dataset(original_dataset, subset_indices):
+        subset_embeddings = [
+            original_dataset.embeddings[i] for i in subset_indices.indices
+        ]
+        subset_label1 = [original_dataset.label1[i] for i in subset_indices.indices]
+        subset_label2 = [original_dataset.label2[i] for i in subset_indices.indices]
+
+        return TexShapeDataset(
+            embeddings=torch.stack(subset_embeddings),  # pylint: disable=no-member
+            label1=torch.tensor(subset_label1),  # pylint: disable=no-member
+            label2=torch.tensor(subset_label2),  # pylint: disable=no-member
+        )
+
+    # Create the new TexShape datasets for train and validation
+    train_dataset = create_subset_dataset(dataset, train_indices)
+    validation_dataset = create_subset_dataset(dataset, validation_indices)
+
     return train_dataset, validation_dataset
 
 
 def load_mnli(
     mnli_data_path: Path = Path("data/processed/mnli"),
 ) -> Tuple[MNLI_Dataset, MNLI_Dataset]:
-    train_premise_embeddings = torch.load(
-        mnli_data_path / "train_premise_embeddings.pt"
-    )
-    train_hypothesis_embeddings = torch.load(
-        mnli_data_path / "train_hypothesis_embeddings.pt"
-    )
-    train_label1 = torch.load(mnli_data_path / "train_label1.pt")
-    train_label2 = torch.load(mnli_data_path / "train_label2.pt")
+    train_path = mnli_data_path / "train"
+    validation_path = mnli_data_path / "validation"
 
-    validation_premise_embeddings = torch.save(
-        mnli_data_path / "validation_premise_embeddings.pt"
+    train_premise_embeddings = torch.load(train_path / "premise_embeddings.pt")
+    train_hypothesis_embeddings = torch.load(train_path / "hypothesis_embeddings.pt")
+    train_label1 = torch.load(train_path / "label.pt")
+    train_label2 = torch.load(train_path / "genre_label.pt")
+
+    validation_premise_embeddings = torch.load(
+        validation_path / "premise_embeddings.pt"
     )
-    validation_hypothesis_embeddings = torch.save(
-        mnli_data_path / "validation_hypothesis_embeddings.pt",
+    validation_hypothesis_embeddings = torch.load(
+        validation_path / "hypothesis_embeddings.pt",
     )
-    validation_label1 = torch.save(mnli_data_path / "validation_label1.pt")
-    validation_label2 = torch.save(mnli_data_path / "validation_label2.pt")
+    validation_label1 = torch.load(validation_path / "label.pt")
+    validation_label2 = torch.load(validation_path / "genre_label.pt")
 
     train_dataset = MNLI_Dataset(
         premise=train_premise_embeddings,
@@ -223,8 +245,56 @@ def load_mnli(
 
 
 def load_corona(
-    data_path: Path = Path("data/processed/corona"),
+    data_path: Path = Path("data/processed/corona/"),
 ) -> Tuple[TexShapeDataset, TexShapeDataset]:
-    train_dataset: TexShapeDataset = torch.load(data_path / "train.pt")
-    validation_dataset: TexShapeDataset = torch.load(data_path / "validation.pt")
+    """Load the Corona dataset"""
+    train_data_path = data_path / "train"
+    validation_data_path = data_path / "validation"
+
+    # Load the training data
+    train_embeddings = torch.load(train_data_path / "embeddings.pt")
+    train_country_label = torch.load(train_data_path / "country_labels.pt")
+    train_sentiment_label = torch.load(train_data_path / "sentiment_labels.pt")
+
+    # Load the validation data
+    validation_embeddings = torch.load(validation_data_path / "embeddings.pt")
+    validation_country_label = torch.load(validation_data_path / "country_labels.pt")
+    validation_sentiment_label = torch.load(
+        validation_data_path / "sentiment_labels.pt"
+    )
+
+    train_dataset = TexShapeDataset(
+        embeddings=train_embeddings,
+        label1=train_country_label,
+        label2=train_sentiment_label,
+    )
+
+    validation_dataset = TexShapeDataset(
+        embeddings=validation_embeddings,
+        label1=validation_country_label,
+        label2=validation_sentiment_label,
+    )
+
     return train_dataset, validation_dataset
+
+
+def configure_dataset_for_experiment_type(
+    dataset: TexShapeDataset, experiment_type: ExperimentType
+) -> TexShapeDataset:
+    """
+    Make the necessary configurations to the dataset based on the experiment type.
+    :param dataset: The dataset to configure.
+    :param experiment_type: The type of experiment to configure the dataset for.
+    """
+    if experiment_type == ExperimentType.UTILITY:
+        pass
+    elif experiment_type == ExperimentType.UTILITY_PRIVACY:
+        pass
+    elif experiment_type == ExperimentType.COMPRESSION:
+        dataset.label1 = dataset.embeddings.clone()
+    elif experiment_type == ExperimentType.COMPRESSION_PRIVACY:
+        dataset.label1 = dataset.embeddings.clone()
+    else:
+        raise ValueError("Invalid experiment type")
+
+    return dataset

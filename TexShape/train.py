@@ -1,4 +1,8 @@
-"""Train the encoder model using dual optimization."""
+"""
+Train the encoder model using dual optimization.
+Author: H. Kaan Kale
+Email: hkaankale1@gmail.com
+"""
 
 # Standard library imports
 import math
@@ -18,11 +22,16 @@ from src.models.utils import create_encoder_model
 from src.utils.general import (
     set_seed,
     configure_torch_backend,
+)
+from src.utils.config import (
     set_include_privacy,
     load_experiment_params,
     ExperimentParams,
 )
-from src.data.utils import load_experiment_dataset, DatasetParams, load_dataset_params
+from src.data.utils import (
+    load_experiment_dataset,
+    configure_dataset_for_experiment_type,
+)
 from src.dual_optimization_encoder import DualOptimizationEncoder
 
 
@@ -40,15 +49,11 @@ def main(config: DictConfig) -> None:
     device_idx: int = config.device_idx
     device = torch.device(f"cuda:{device_idx}" if torch.cuda.is_available() else "cpu")
     experiment_params: ExperimentParams = load_experiment_params(config)
-    dataset_params: DatasetParams = load_dataset_params(
-        experiment_params.dataset_name, config
-    )
 
-    # TODO: Fix here
+    # Get the experiment directory path
     experiment_dir_path: Path = Path(HydraConfig.get().runtime.output_dir)
     logging.info("Experiment Directory Path: %s", experiment_dir_path)
     logging.info(experiment_params)
-    logging.info(dataset_params)
 
     # Initialize encoder model
     encoder_model: Encoder = create_encoder_model(
@@ -60,8 +65,13 @@ def main(config: DictConfig) -> None:
 
     # Load the dataset
     dataset, _ = load_experiment_dataset(
-        dataset_params=dataset_params,
+        dataset_params=experiment_params.dataset_params,
         device=device,
+    )
+
+    # Configure the dataset according to the expeirment type
+    dataset = configure_dataset_for_experiment_type(
+        dataset, experiment_params.experiment_type
     )
 
     # Set if privacy goal is included TODO: Delete this handle from the params of the encoder
@@ -89,7 +99,7 @@ def main(config: DictConfig) -> None:
         data_loader=data_loader,
         device=device,
         experiment_dir_path=experiment_dir_path,
-        device_idx=device_idx
+        device_idx=device_idx,
     )
 
     num_batches_final_mi = math.ceil(int(len(dataset) / mine_batch_size))
@@ -105,4 +115,4 @@ def main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    main() # pylint: disable=no-value-for-parameter
+    main()  # pylint: disable=no-value-for-parameter

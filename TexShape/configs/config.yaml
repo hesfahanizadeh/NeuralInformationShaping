@@ -1,10 +1,10 @@
 defaults:
-  - dataset: sst2
+  - dataset: mnli
   - encoder: main
   - simulation: main
 
-device_idx: 2
+device_idx: 3
 
 hydra:
   run:
-    dir: ./exps/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: ./exps/training/${now:%Y-%m-%d}_${now:%H-%M-%S}

@@ -3,8 +3,11 @@ from typing import Iterable, List
 import torch
 from torch import nn
 
+
 class SimpleClassifier(nn.Module):
-    def __init__(self, in_dim: int, hidden_dims: Iterable[int], out_dim, dropout_rate=0.1) -> None:
+    def __init__(
+        self, in_dim: int, hidden_dims: Iterable[int], out_dim, dropout_rate=0.1
+    ) -> None:
         super(SimpleClassifier, self).__init__()
 
         layers: List[nn.Module] = []
@@ -17,10 +20,8 @@ class SimpleClassifier(nn.Module):
             prev_size = hidden_dim
 
         layers.append(nn.Linear(prev_size, out_dim))
-        layers.append(nn.Softmax(dim=1))
 
         self.model = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
-    

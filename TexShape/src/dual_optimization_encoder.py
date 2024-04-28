@@ -14,9 +14,9 @@ from pytorch_lightning.callbacks import EarlyStopping
 from src.models import models_to_train
 from src.models.models_to_train import MI_CalculatorModel
 from src.models.utils import create_mi_calculator_model
-from src.utils.general import (
+from src.utils.config import (
     ExperimentParams,
-    MINE_Params,
+    MineParams,
     EncoderParams,
 )
 from src.mine import MutualInformationEstimator, Mine
@@ -24,6 +24,10 @@ from src.data.utils import TexShapeDataset
 
 
 class DualOptimizationEncoder(nn.Module):
+    """
+    Dual Optimization Encoder Model. This model trains the encoder using dual optimization.
+    """
+
     def __init__(
         self,
         *,
@@ -41,7 +45,7 @@ class DualOptimizationEncoder(nn.Module):
         self.dataset: TexShapeDataset = data_loader.dataset
 
         self.experiment_params: ExperimentParams = experiment_params
-        self.mine_params: MINE_Params = experiment_params.mine_params
+        self.mine_params: MineParams = experiment_params.mine_params
 
         # Set the mine batch size if -1 passed
         if self.mine_params.mine_batch_size == -1:
@@ -50,6 +54,14 @@ class DualOptimizationEncoder(nn.Module):
         self.encoder_params: EncoderParams = experiment_params.encoder_params
         self.experiment_dir_path: Path = experiment_dir_path
 
+        self.encoder_learning_rate = (
+            experiment_params.encoder_params.encoder_learning_rate
+        )
+
+        self.encoder_optimizer = torch.optim.Adam(
+            self.encoder_model.parameters(),
+            lr=self.encoder_learning_rate,
+        )
         self.beta: float = experiment_params.beta
         # Define the device
         self.device: torch.device = device
@@ -60,7 +72,7 @@ class DualOptimizationEncoder(nn.Module):
             self.device_idx: int = 0
 
         self.num_workers: int = 0  # experiment_params.num_workers
-        self.mine_trainer_patience: int = 100
+
         logging.info("Device: %s", self.device)
 
         self.epoch = 0
@@ -119,14 +131,16 @@ class DualOptimizationEncoder(nn.Module):
             self.mine_params.mine_batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            pin_memory=True,
+            # TODO: Check here
+            # pin_memory=True,
         )
         z_train_loader_privacy_detached = DataLoader(
             z_train_privacy_detached,
             self.mine_params.mine_batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            pin_memory=True,
+            # TODO: Check here
+            # pin_memory=True,
         )
 
         return (
@@ -205,7 +219,9 @@ class DualOptimizationEncoder(nn.Module):
         last_mi_privacy = 0
         if include_utility:
             early_stop_callback = EarlyStopping(
-                monitor="mi", patience=self.mine_trainer_patience, mode="max"
+                monitor="mi",
+                patience=self.mine_params.mine_trainer_patience,
+                mode="max",
             )
 
             logger_utility = TensorBoardLogger(
@@ -284,11 +300,13 @@ class DualOptimizationEncoder(nn.Module):
                 sum_MI_utility += model_MINE_utility.energy_loss(Tx, Lx)
 
             # MINE loss = -1 * MI estimate since we are maximizing using gradient descent still
-            last_mi_utility = -1 * sum_MI_utility / num_batches_final_MI
+            last_mi_utility: torch.Tensor = -1 * sum_MI_utility / num_batches_final_MI
 
         if include_privacy:
             early_stop_callback = EarlyStopping(
-                monitor="mi", patience=self.mine_trainer_patience, mode="max"
+                monitor="mi",
+                patience=self.mine_params.mine_trainer_patience,
+                mode="max",
             )
 
             logger_privacy = TensorBoardLogger(
@@ -337,7 +355,7 @@ class DualOptimizationEncoder(nn.Module):
             sum_MI_privacy = 0
             privacy_it = iter(z_train_loader_privacy)
             # prev_mi = None
-            for i in range(num_batches_final_MI):
+            for _ in range(num_batches_final_MI):
                 Tx: torch.Tensor
                 Sx: torch.Tensor
                 Tx, Sx = next(privacy_it)
@@ -347,7 +365,9 @@ class DualOptimizationEncoder(nn.Module):
             last_mi_privacy: torch.Tensor = -1 * sum_MI_privacy / num_batches_final_MI
 
         logging.info(
-            f"final MI values: utility: {last_mi_utility}, privacy: {last_mi_privacy}"
+            "Final MI values: utility: %s, privacy: %s",
+            last_mi_utility.item(),
+            last_mi_privacy.item(),
         )
         return last_mi_utility, last_mi_privacy
 
@@ -375,12 +395,6 @@ class DualOptimizationEncoder(nn.Module):
         # Encoder's training params
         mi_utility: torch.Tensor
         mi_privacy: torch.Tensor
-        learning_rate = 1e-3
-
-        self.encoder_optimizer = torch.optim.Adam(
-            self.encoder_model.parameters(),
-            lr=learning_rate,
-        )
         self.encoder_model.train()
 
         for epoch in range(self.encoder_params.num_enc_epochs):
@@ -414,12 +428,16 @@ class DualOptimizationEncoder(nn.Module):
             self._save_encoder_weights(enc_save_path)
 
             logging.info(
-                f"====> Epoch: {epoch} Utility MI I(T(x); L(x)): {mi_utility:.8f}"
+                "====> Epoch: %s Utility MI I(T(x); L(x)): %s",
+                epoch,
+                round(mi_utility.item(), 8),
             )
             logging.info(
-                f"====> Epoch: {epoch} Privacy MI I(T(x); S(x)): {mi_privacy:.8f}"
+                "====> Epoch: %s Privacy MI I(T(x); S(x)): %s",
+                epoch,
+                round(mi_privacy.item(), 8),
             )
-            logging.info(f"====> Epoch: {epoch} Loss: {loss:.8f}")
+            logging.info("====> Epoch: %s Loss: %s", epoch, round(loss.item(), 8))
 
             self.epoch += 1
 
@@ -445,8 +463,8 @@ class DualOptimizationEncoder(nn.Module):
         # Get the name of the parent dir of the model_path
         save_dir = model_path.parent
 
-        logging.debug(f"Saving weights to {save_dir}")
-        
+        logging.debug("Saving weights to %s", save_dir)
+
         # Save the state dict of the model
         torch.save(
             self.encoder_model.state_dict(),
