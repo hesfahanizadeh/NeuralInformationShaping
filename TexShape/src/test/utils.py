@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, List
 import logging
 
 from torch.utils.data import DataLoader, TensorDataset
@@ -12,6 +12,7 @@ from src.utils.config import (
     EncoderParams,
     TestType,
     DatasetName,
+    ExperimentType
 )
 
 from src.data.utils import TexShapeDataset
@@ -30,6 +31,30 @@ class TestParams:
     batch_size: int = 2048
     device_idx: int = 3
 
+def create_test_types(experiment_type: ExperimentType) -> List[TestType]:
+    """
+    Create the experiment types based on the experiment type.
+
+    :params experiment_type: str, the experiment type.
+    :returns: List[TestTypes], the experiment types.
+    """
+    test_types = [
+        TestType.RANDOM,
+        TestType.ORIGINAL,
+        TestType.TEXSHAPE,
+    ]
+
+    # Check if experiment type contains privacy
+    if experiment_type == ExperimentType.UTILITY_PRIVACY:
+        test_types.append(TestType.NOISE)
+    elif experiment_type == ExperimentType.UTILITY:
+        pass
+    elif experiment_type == ExperimentType.COMPRESSION:
+        test_types.append(TestType.QUANTIZATION)
+    elif experiment_type == ExperimentType.COMPRESSION_PRIVACY:
+        test_types.append(TestType.QUANTIZATION)
+        test_types.append(TestType.NOISE)
+    return test_types
 
 def calculate_dimensions(experiment_params: ExperimentParams, utility: bool):
     """Calculate the dimensions for the model."""
@@ -281,3 +306,359 @@ def get_num_classes(experiment_params):
         num_class1 = 2
         num_class2 = 2
     return num_class1, num_class2
+
+
+    # # Create the test types based on the experiment type
+    # test_types: List[ExperimentType] = create_test_types(experiment_type)
+
+    # # Get num classes
+    # num_class1, num_class2 = get_num_classes(experiment_params)
+
+    # #
+    # utility_rocs: Dict[Union[TestType, str], np.array] = {}
+    # privacy_rocs = {}
+
+    # utility_aucs = {}
+    # privacy_aucs = {}
+
+    # utility_accs = {}
+    # privacy_accs = {}
+
+    # for test_type in test_types:
+    #     if test_type == TestType.NOISE:
+    #         test_type: TestType
+    #         noise_std_values = [0.1, 0.25, 0.5]
+
+    #         for noise_std in noise_std_values:
+    #             logging.info("Testing model for test type: %s", test_type)
+
+    #             train_dataset, validation_dataset = load_train_dataset(
+    #                 dataset_params=experiment_params.dataset_params, device=device
+    #             )
+    #             train_dataset.add_noise_embedding(noise_std)
+    #             logging.info(
+    #                 "Noise added to the training dataset. Noise std: %s", noise_std
+    #             )
+
+    #             (
+    #                 train_utility_dataloader,
+    #                 train_private_dataloader,
+    #                 validation_utility_dataloader,
+    #                 validation_private_dataloader,
+    #             ) = create_dataloaders(train_dataset, validation_dataset, batch_size)
+
+    #             logging.info("Training the utility model")
+    #             # Train the utility model
+    #             classifier_model: SimpleClassifier = load_test_model(
+    #                 test_type=test_type,
+    #                 experiment_params=experiment_params,
+    #                 utility=True,
+    #             )
+    #             # Train classifier
+    #             pl_model = TestClass(model=classifier_model, num_class=num_class1)
+    #             trainer = train_model(
+    #                 pl_model=pl_model,
+    #                 train_dataloader=train_utility_dataloader,
+    #                 validation_dataloader=validation_utility_dataloader,
+    #                 max_epochs=utility_max_epoch,
+    #                 device_idx=device_idx,
+    #             )
+    #             roc, auc = calculate_roc_and_auc(
+    #                 classifier_model=classifier_model,
+    #                 validation_dataloader=validation_utility_dataloader,
+    #                 device_idx=device_idx,
+    #             )
+    #             utility_rocs.update({f"Noise: {noise_std}": roc})
+    #             utility_aucs.update({f"Noise: {noise_std}": auc})
+    #             utility_accs.update({f"Noise: {noise_std}": (train_acc, val_acc)})
+
+    #             logging.info("Training the privacy model")
+    #             # Train the privacy model
+    #             classifier_model: SimpleClassifier = load_test_model(
+    #                 test_type=test_type,
+    #                 experiment_params=experiment_params,
+    #                 utility=False,
+    #             )
+    #             # Train classifier
+    #             pl_model = TestClass(model=classifier_model, num_class=num_class2)
+    #             tainer = train_model(
+    #                 pl_model=pl_model,
+    #                 train_dataloader=train_private_dataloader,
+    #                 validation_dataloader=validation_private_dataloader,
+    #                 max_epochs=privacy_max_epoch,
+    #                 device_idx=device_idx,
+    #             )
+    #             roc, auc = calculate_roc_and_auc(
+    #                 classifier_model, validation_private_dataloader, device_idx
+    #             )
+    #             privacy_rocs.update({f"Noise: {noise_std}": roc})
+    #             privacy_aucs.update({f"Noise: {noise_std}": auc})
+    #             privacy_accs.update({f"Noise: {noise_std}": (train_acc, val_acc)})
+
+    # elif test_type == TestType.TEXSHAPE:
+    #     logging.info("Testing model for test type: %s", test_type)
+
+    #     train_dataset, validation_dataset = load_train_dataset(
+    #         dataset_params=experiment_params.dataset_params, device=device
+    #     )
+
+    #     # Load the encoder model
+    #     encoder_model_weights_dir = experiment_dir / "encoder_weights"
+    #     encoder_model: Encoder = load_and_configure_encoder(
+    #         model_name=experiment_params.encoder_params.encoder_model_name,
+    #         model_params=experiment_params.encoder_params.encoder_model_params,
+    #         weights_dir=encoder_model_weights_dir,
+    #         load_from_epoch=load_from_epoch,
+    #     )
+
+    #     # Pass the embeddings through the encoder model
+    #     train_dataset_embeddings, validation_dataset_embeddings = (
+    #         process_embeddings(
+    #             encoder_model=encoder_model,
+    #             train_embeddings=train_dataset.embeddings,
+    #             validation_embeddings=validation_dataset.embeddings,
+    #             device=device,
+    #             dataset_name=experiment_params.dataset_params.dataset_name,
+    #         )
+    #     )
+    #     train_dataset.embeddings = train_dataset_embeddings
+    #     validation_dataset.embeddings = validation_dataset_embeddings
+
+    #     (
+    #         train_utility_dataloader,
+    #         train_private_dataloader,
+    #         validation_utility_dataloader,
+    #         validation_private_dataloader,
+    #     ) = create_dataloaders(train_dataset, validation_dataset, batch_size)
+
+    #     logging.info("Training the utility model")
+    #     # Train the utility model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=True
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class1)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+    #     utility_aucs.update({test_type: auc})
+    #     utility_rocs.update({test_type: roc})
+    #     utility_accs.update({test_type: (train_acc, val_acc)})
+
+    #     logging.info("Training the privacy model")
+    #     # Train the privacy model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=False
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class2)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+    #     privacy_aucs.update({test_type: auc})
+    #     privacy_rocs.update({test_type: roc})
+    #     privacy_accs.update({test_type: (train_acc, val_acc)})
+
+    # elif test_type == TestType.RANDOM:
+    #     logging.info("Testing model for test type: %s", test_type)
+
+    #     train_dataset, validation_dataset = load_train_dataset(
+    #         dataset_params=experiment_params.dataset_params, device=device
+    #     )
+
+    #     encoder_model: Encoder = load_and_configure_encoder(
+    #         model_name=experiment_params.encoder_params.encoder_model_name,
+    #         model_params=experiment_params.encoder_params.encoder_model_params,
+    #     )
+
+    #     # Pass the embeddings through the encoder model
+    #     train_dataset_embeddings, validation_dataset_embeddings = (
+    #         process_embeddings(
+    #             encoder_model=encoder_model,
+    #             train_embeddings=train_dataset.embeddings,
+    #             validation_embeddings=validation_dataset.embeddings,
+    #             device=device,
+    #             dataset_name=experiment_params.dataset_params.dataset_name,
+    #         )
+    #     )
+    #     train_dataset.embeddings = train_dataset_embeddings
+    #     validation_dataset.embeddings = validation_dataset_embeddings
+
+    #     (
+    #         train_utility_dataloader,
+    #         train_private_dataloader,
+    #         validation_utility_dataloader,
+    #         validation_private_dataloader,
+    #     ) = create_dataloaders(train_dataset, validation_dataset, batch_size)
+
+    #     logging.info("Training the utility model")
+    #     # Train the utility model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=True
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class1)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+
+    #     utility_aucs.update({test_type: auc})
+    #     utility_rocs.update({test_type: roc})
+    #     utility_accs.update({test_type: (train_acc, val_acc)})
+
+    #     logging.info("Training the privacy model")
+    #     # Train the privacy model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=True
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class2)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+    #     privacy_aucs.update({test_type: auc})
+    #     privacy_rocs.update({test_type: roc})
+    #     privacy_accs.update({test_type: (train_acc, val_acc)})
+
+    # elif test_type == TestType.ORIGINAL:
+    #     logging.info("Testing model for test type: %s", test_type)
+
+    #     train_dataset, validation_dataset = load_train_dataset(
+    #         dataset_params=experiment_params.dataset_params, device=device
+    #     )
+    #     (
+    #         train_utility_dataloader,
+    #         train_private_dataloader,
+    #         validation_utility_dataloader,
+    #         validation_private_dataloader,
+    #     ) = create_dataloaders(train_dataset, validation_dataset, batch_size)
+
+    #     logging.info("Training the utility model")
+    #     # Train the utility model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=True
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class1)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+
+    #     utility_aucs.update({test_type: auc})
+    #     utility_rocs.update({test_type: roc})
+    #     utility_accs.update({test_type: (train_acc, val_acc)})
+
+    #     logging.info("Training the privacy model")
+    #     # Train the privacy model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=False
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class2)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+
+    #     privacy_aucs.update({test_type: auc})
+    #     privacy_rocs.update({test_type: roc})
+    #     privacy_accs.update({test_type: (train_acc, val_acc)})
+
+    # elif test_type == TestType.QUANTIZATION:
+    #     logging.info("Testing model for test type: %s", test_type)
+
+    #     train_dataset, validation_dataset = load_train_dataset(
+    #         dataset_params=experiment_params.dataset_params, device=device
+    #     )
+
+    #     train_dataset.embeddings = quantize_embeddings(train_dataset.embeddings)
+    #     validation_dataset.embeddings = quantize_embeddings(
+    #         validation_dataset.embeddings
+    #     )
+
+    #     (
+    #         train_utility_dataloader,
+    #         train_private_dataloader,
+    #         validation_utility_dataloader,
+    #         validation_private_dataloader,
+    #     ) = create_dataloaders(train_dataset, validation_dataset, batch_size)
+
+    #     logging.info("Training the utility model")
+    #     # Train the utility model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=True
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class1)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+
+    #     utility_aucs.update({test_type: auc})
+    #     utility_rocs.update({test_type: roc})
+    #     utility_accs.update({test_type: (train_acc, val_acc)})
+
+    #     logging.info("Training the privacy model")
+    #     # Train the privacy model
+    #     classifier_model: SimpleClassifier = load_test_model(
+    #         test_type=test_type, experiment_params=experiment_params, utility=False
+    #     )
+    #     # Train classifier
+    #     pl_model = TestClass(model=classifier_model, num_class=num_class2)
+    #     train_acc, val_acc, roc, auc = train_model(
+    #         pl_model=pl_model,
+    #         train_dataloader=train_utility_dataloader,
+    #         validation_dataloader=validation_utility_dataloader,
+    #         max_epochs=utility_max_epoch,
+    #         device_idx=device_idx,
+    #     )
+    #     privacy_aucs.update({test_type: auc})
+    #     privacy_rocs.update({test_type: roc})
+    #     privacy_accs.update({test_type: (train_acc, val_acc)})
+
+    # names = [
+    #     key.value.capitalize() if isinstance(key, TestType) else key.capitalize()
+    #     for key in utility_rocs
+    # ]
+
+    # # Plot the rocs
+    # plot_accs(
+    #     accs=list(utility_rocs.values()),
+    #     names=names,
+    #     save_loc=experiment_dir / "utility_rocs.png",
+    #     legend=True,
+    # )
+
+    # plot_accs(
+    #     accs=list(privacy_rocs.values()),
+    #     names=names,
+    #     save_loc=experiment_dir / "privacy_rocs.png",
+    #     legend=True,
+    # )
