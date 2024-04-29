@@ -29,7 +29,7 @@ from src.utils.config import (
     ExperimentParams,
 )
 from src.data.utils import (
-    load_experiment_dataset,
+    load_train_dataset,
     configure_dataset_for_experiment_type,
 )
 from src.dual_optimization_encoder import DualOptimizationEncoder
@@ -64,7 +64,7 @@ def main(config: DictConfig) -> None:
     logging.info(encoder_model)
 
     # Load the dataset
-    dataset, _ = load_experiment_dataset(
+    dataset, _ = load_train_dataset(
         dataset_params=experiment_params.dataset_params,
         device=device,
     )

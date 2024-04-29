@@ -22,8 +22,15 @@ class TestType(Enum):
     NOISE = "NOISE"
     QUANTIZATION = "QUANTIZATION"
 
+
 class ExperimentType(Enum):
-    """Experiment types."""
+    """
+    Experiment types.
+    UTILITY: Utility only.
+    UTILITY_PRIVACY: Utility and privacy.
+    COMPRESSION: Compression only.
+    COMPRESSION_PRIVACY: Compression and privacy.
+    """
 
     UTILITY = "utility"
     UTILITY_PRIVACY = "utility+privacy"
@@ -62,11 +69,12 @@ class MineParams:
     mine_epochs_privacy: int = 2000
     mine_epochs_utility: int = 2000
 
+
 class DatasetParams(ABC):
     """Abstract Dataset Params."""
 
     dataset_loc: Union[Path, str]
-    dataset_name: str
+    dataset_name: Union[DatasetName, str]
 
 
 @dataclass
@@ -81,6 +89,7 @@ class SST2Params(DatasetParams):
         if isinstance(self.dataset_loc, str):
             self.dataset_loc = Path(self.dataset_loc)
 
+
 @dataclass
 class CoronaParams(DatasetParams):
     """Corona Dataset Params"""
@@ -92,6 +101,7 @@ class CoronaParams(DatasetParams):
         self.dataset_name: DatasetName = DatasetName.CORONA
         if isinstance(self.dataset_loc, str):
             self.dataset_loc = Path(self.dataset_loc)
+
 
 @dataclass
 class MNLIParams(DatasetParams):
@@ -111,17 +121,34 @@ class MNLIParams(DatasetParams):
 
 @dataclass
 class EncoderParams:
-    """Encoder Model Params."""
+    """
+    Encoder Model Params.
+    :param encoder_model_name: Encoder model name.
+    :param encoder_model_params: Encoder model parameters.
+    :param num_enc_epochs: Number of encoder training epochs.
+    :param encoder_learning_rate: Encoder learning rate.
+    """
 
     encoder_model_name: str
     encoder_model_params: dict
-    num_enc_epochs: int = 10
-    encoder_learning_rate: float = 1e-3
+    num_enc_epochs: int
+    encoder_learning_rate: float
 
 
 @dataclass
 class ExperimentParams:
-    """Experiment parameters."""
+    """
+    Experiment parameters.
+    :param experiment_type: Experiment type.
+    :param beta: Beta parameter.
+    :param mine_params: Mutual Information Neural Estimation parameters.
+    :param encoder_params: Encoder model parameters.
+    :param dataset_params: Dataset parameters.
+
+    :func __post_init__: Post initialization function.
+    Type cast the experiment type, mine params, encoder params, and dataset params.
+    :raises ValueError: If the dataset name is invalid.
+    """
 
     experiment_type: Union[ExperimentType, str]  # "utility+privacy"
     beta: float

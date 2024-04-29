@@ -215,8 +215,9 @@ class DualOptimizationEncoder(nn.Module):
         #         logging.info("No previous MINE model found, training from scratch")
 
         # Optimize MINE estimate, "train" MINE
-        last_mi_utility = 0
-        last_mi_privacy = 0
+        # pylint: disable=no-member
+        last_mi_utility = torch.tensor(0)
+        last_mi_privacy = torch.tensor(0)
         if include_utility:
             early_stop_callback = EarlyStopping(
                 monitor="mi",
@@ -280,7 +281,7 @@ class DualOptimizationEncoder(nn.Module):
             # Batches are K random samples from the dataset after all
 
             logging.info(
-                "Num batches final MI: %s, \nlen dataset: %s, \nK: %s, \nlen dataset / K: %s",
+                "Num batches final MI: %s, \tLen dataset: %s, \tK: %s, \tLen dataset / K: %s",
                 num_batches_final_MI,
                 len(z_train_loader_utility.dataset),
                 self.mine_params.mine_batch_size,

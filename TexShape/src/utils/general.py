@@ -29,8 +29,8 @@ def get_roc_auc(
             all_labels.extend(labels.cpu().numpy())
             all_confidences.extend(outputs.cpu().numpy()[:, 1])
 
-    roc = np.array(roc_curve(all_labels, all_confidences))
-    
+    roc = roc_curve(all_labels, all_confidences)
+
     # Get the AUC
     auc_score = auc(roc[0], roc[1])
     return roc, auc_score

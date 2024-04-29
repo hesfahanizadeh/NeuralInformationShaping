@@ -7,12 +7,13 @@ import pytorch_lightning as pl
 from torchmetrics import Accuracy
 
 
+# pylint: disable=no-member, unused-argument
 class TestClass(pl.LightningModule):
-    def __init__(self, model):
+    def __init__(self, model, num_class):
         super().__init__()
         self.model = model
-        self.accuracy_train = Accuracy(task="multiclass", num_classes=2)
-        self.accuracy_val = Accuracy(task="multiclass", num_classes=2)
+        self.accuracy_train = Accuracy(task="multiclass", num_classes=num_class)
+        self.accuracy_val = Accuracy(task="multiclass", num_classes=num_class)
 
     def forward(self, x):
         x = self.model(x)

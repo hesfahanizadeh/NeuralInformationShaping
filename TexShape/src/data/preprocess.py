@@ -48,7 +48,7 @@ def preprocess_sst2(device: torch.Tensor, data_path: Path) -> None:
     if not data_path.exists():
         data_path.mkdir(parents=True, exist_ok=True)
 
-    torch.save(embeddings, data_path / "embeddings.pt")
+    torch.save(embeddings.cpu(), data_path / "embeddings.pt")
     torch.save(sentiment_labels, data_path / "sentiment_labels.pt")
     torch.save(sent_len_labels, data_path / "sent_len_labels.pt")
 
@@ -116,22 +116,27 @@ def preprocess_mnli(
     if not validation_data_path.exists():
         validation_data_path.mkdir(parents=True, exist_ok=True)
 
-    torch.save(train_premise_embeddings, train_data_path / "premise_embeddings.pt")
     torch.save(
-        train_hypothesis_embeddings, train_data_path / "hypothesis_embeddings.pt"
+        train_premise_embeddings.cpu(), train_data_path / "premise_embeddings.pt"
     )
-    torch.save(train_label1, train_data_path / "label.pt")
-    torch.save(train_label2, train_data_path / "genre_label.pt")
+    torch.save(
+        train_hypothesis_embeddings.cpu(), train_data_path / "hypothesis_embeddings.pt"
+    )
+    torch.save(train_label1.detach().cpu(), train_data_path / "label.pt")
+    torch.save(train_label2.detach().cpu(), train_data_path / "genre_label.pt")
 
     torch.save(
-        validation_premise_embeddings, validation_data_path / "premise_embeddings.pt"
+        validation_premise_embeddings.detach().cpu(),
+        validation_data_path / "premise_embeddings.pt",
     )
     torch.save(
-        validation_hypothesis_embeddings,
+        validation_hypothesis_embeddings.detach().cpu(),
         validation_data_path / "hypothesis_embeddings.pt",
     )
-    torch.save(validation_label1, validation_data_path / "label.pt")
-    torch.save(validation_label2, validation_data_path / "genre_label.pt")
+    torch.save(validation_label1.detach().cpu(), validation_data_path / "label.pt")
+    torch.save(
+        validation_label2.detach().cpu(), validation_data_path / "genre_label.pt"
+    )
 
 
 def preprocess_corona(
@@ -162,14 +167,18 @@ def preprocess_corona(
         text = sample["text_clean"]
         sentiment_label = sample["Sentiment"]
         country_label = sample["Country"]
-        text_embedding = model.encode(
-            text,
-            convert_to_tensor=True,
-            device=device,
-            batch_size=128,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).cpu()
+        text_embedding = (
+            model.encode(
+                text,
+                convert_to_tensor=True,
+                device=device,
+                batch_size=128,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            .detach()
+            .cpu()
+        )
 
         train_dict[i] = {
             "embedding": text_embedding,
@@ -181,14 +190,18 @@ def preprocess_corona(
         text = sample["text_clean"]
         sentiment_label = sample["Sentiment"]
         country_label = sample["Country"]
-        text_embedding = model.encode(
-            text,
-            convert_to_tensor=True,
-            device=device,
-            batch_size=128,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).cpu()
+        text_embedding = (
+            model.encode(
+                text,
+                convert_to_tensor=True,
+                device=device,
+                batch_size=128,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            .detach()
+            .cpu()
+        )
 
         validation_dict[i] = {
             "embedding": text_embedding,
@@ -232,14 +245,26 @@ def preprocess_corona(
     )
 
     # Save the training data
-    torch.save(train_embeddings, train_data_path / "embeddings.pt")
-    torch.save(train_country_label, train_data_path / "country_labels.pt")
-    torch.save(train_sentiment_label, train_data_path / "sentiment_labels.pt")
+    torch.save(train_embeddings.detach().cpu(), train_data_path / "embeddings.pt")
+    torch.save(
+        train_country_label.detach().cpu(), train_data_path / "country_labels.pt"
+    )
+    torch.save(
+        train_sentiment_label.detach().cpu(), train_data_path / "sentiment_labels.pt"
+    )
 
     # Save the validation data
-    torch.save(validation_embeddings, validation_data_path / "embeddings.pt")
-    torch.save(validation_country_label, validation_data_path / "country_labels.pt")
-    torch.save(validation_sentiment_label, validation_data_path / "sentiment_labels.pt")
+    torch.save(
+        validation_embeddings.detach().cpu(), validation_data_path / "embeddings.pt"
+    )
+    torch.save(
+        validation_country_label.detach().cpu(),
+        validation_data_path / "country_labels.pt",
+    )
+    torch.save(
+        validation_sentiment_label.detach().cpu(),
+        validation_data_path / "sentiment_labels.pt",
+    )
 
 
 def extract_embeddings(
