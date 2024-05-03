@@ -37,7 +37,7 @@ experiment:
 batch_size: 2048
 device_idx: 3
 experiments_dir: "exps/training"
-experiment_date: "2024-04-28_20-31-42"
+experiment_date: "2024-04-29_21-18-50"
 
 hydra:
   run:

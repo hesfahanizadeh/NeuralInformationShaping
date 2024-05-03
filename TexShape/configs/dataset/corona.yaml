@@ -1,2 +1,3 @@
 dataset_name: "corona"
-dataset_loc: "data/processed/corona"
+dataset_loc: "data/processed"
+st_model_name: "all-mpnet-base-v2"

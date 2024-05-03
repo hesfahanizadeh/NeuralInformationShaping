@@ -1,3 +1,5 @@
+"""Test utils."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple, List
@@ -6,13 +8,14 @@ import logging
 from torch.utils.data import DataLoader, TensorDataset
 import pytorch_lightning as pl
 import torch
+import numpy as np
 
 from src.utils.config import (
     ExperimentParams,
     EncoderParams,
     TestType,
     DatasetName,
-    ExperimentType
+    ExperimentType,
 )
 
 from src.data.utils import TexShapeDataset
@@ -24,12 +27,23 @@ from src.models.utils import create_encoder_model
 
 
 @dataclass
+class TestStats:
+    """Test stats dataclass."""
+
+    validation_roc: np.ndarray
+    validation_auc_score: float
+    validation_acc: float
+    train_acc: float
+
+
+@dataclass
 class TestParams:
     """Test params dataclass."""
 
     max_epoch: int = -1
     batch_size: int = 2048
     device_idx: int = 3
+
 
 def create_test_types(experiment_type: ExperimentType) -> List[TestType]:
     """
@@ -55,6 +69,7 @@ def create_test_types(experiment_type: ExperimentType) -> List[TestType]:
         test_types.append(TestType.QUANTIZATION)
         test_types.append(TestType.NOISE)
     return test_types
+
 
 def calculate_dimensions(experiment_params: ExperimentParams, utility: bool):
     """Calculate the dimensions for the model."""
@@ -306,7 +321,6 @@ def get_num_classes(experiment_params):
         num_class1 = 2
         num_class2 = 2
     return num_class1, num_class2
-
 
     # # Create the test types based on the experiment type
     # test_types: List[ExperimentType] = create_test_types(experiment_type)
@@ -662,3 +676,47 @@ def get_num_classes(experiment_params):
     #     save_loc=experiment_dir / "privacy_rocs.png",
     #     legend=True,
     # )
+
+    # raise NotImplementedError("Saving results not implemented.")
+
+
+# for test_type, stats in self.test_type_stats.items():
+#     first_dataset_stats: TestStats
+#     second_dataset_stats: TestStats
+#     first_dataset_stats, second_dataset_stats = stats
+
+#     logging.info("Saving results for test type: %s", test_type)
+
+# # Plot the rocs
+# plot_accs(
+#     accs=first_dataset_stats.validation_roc,
+#     names=names,
+#     save_loc=experiment_dir / "utility_rocs.png",
+#     legend=True,
+# )
+
+# plot_accs(
+#     accs=list(privacy_rocs.values()),
+#     names=names,
+#     save_loc=experiment_dir / "privacy_rocs.png",
+#     legend=True,
+# )
+
+    def quantize_embeddings(
+        self, embeddings: torch.Tensor, num_bits: int = 8
+    ) -> torch.Tensor:
+        """Quantize the embeddings."""
+        # Shift the range of the data from [min, max] to [0, max - min]
+        embeddings_min = embeddings.min()
+        embeddings_max = embeddings.max()
+        max_value = max(abs(embeddings_min), abs(embeddings_max))
+        scale = max_value / 128
+
+        # pylint: disable=no-member
+        # Make the embeddings between
+        quantized_embeddings = torch.quantize_per_tensor(
+            embeddings, scale=scale, zero_point=0, dtype=torch.qint8
+        )
+
+        quantized_embeddings = torch.dequantize(quantized_embeddings)
+        return embeddings

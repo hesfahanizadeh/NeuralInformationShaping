@@ -1,9 +1,9 @@
-"""Utility privacy test module."""
+"""Compression test module."""
 
 from pathlib import Path
-from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Dict
 import logging
+import pickle
 
 from torch.utils.data import DataLoader, TensorDataset
 import pytorch_lightning as pl
@@ -11,31 +11,21 @@ import torch
 import numpy as np
 
 from src.utils.config import ExperimentParams, EncoderParams, TestType, DatasetName
-from src.data.utils import load_train_dataset, TexShapeDataset
 from src.utils.testing import TestClass
 from src.utils.general import get_roc_auc
+from src.data.utils import load_train_dataset, TexShapeDataset
 from src.models.predict_model import SimpleClassifier
 from src.models.models_to_train import Encoder
 from src.models.utils import create_encoder_model
-from src.test.utils import TestParams
-
-
-@dataclass
-class TestStats:
-    """Test stats dataclass."""
-
-    validation_roc: np.ndarray
-    validation_auc_score: float
-    validation_acc: float
-    train_acc: float
+from src.test.utils import TestParams, TestStats
 
 
 TEST_TYPES = [
     TestType.RANDOM,
     TestType.ORIGINAL,
-    # TestType.TEXSHAPE,
+    TestType.TEXSHAPE,
     # TestType.NOISE,
-    # TestType.QUANTIZATION,
+    TestType.QUANTIZATION,
 ]
 
 
@@ -55,13 +45,15 @@ class CompressionTester:
             else "cpu"
         )
         self.experiment_params = experiment_params
-        self.test_type_stats = {}
+        self.test_type_stats: Dict[TestType : Tuple[TestStats, TestStats]] = {}
         self.encoder_weights_path = encoder_weights_path
 
     def run_all_tests(self):
         """Run all tests."""
         for test_type in TEST_TYPES:
             self.run_test_type(test_type)
+
+        self.save_results()
 
     def run_test_type(self, test_type: TestType):
         """Run the test for the given test type."""
@@ -79,7 +71,6 @@ class CompressionTester:
         else:
             return_roc_auc_first_dataset = True
 
-        logging.info("Training the Compression model")
         first_dataset_stats = self.train_and_evaluate_model(
             test_type,
             train_first_dataloader,
@@ -146,7 +137,7 @@ class CompressionTester:
         """
         Model training function.
         """
-        logging.info("Training model")
+        logging.debug("Training model")
         # scheduler = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
         scheduler = pl.callbacks.EarlyStopping(
             monitor="val_acc", patience=20, mode="max", verbose=False
@@ -260,8 +251,13 @@ class CompressionTester:
             validation_dataset.embeddings = validation_dataset_embeddings
             return train_dataset, validation_dataset
         if test_type == TestType.QUANTIZATION:
-            raise NotImplementedError("Quantization not implemented.")
-
+            train_dataset.embeddings = self.quantize_embeddings(
+                train_dataset.embeddings
+            )
+            validation_dataset.embeddings = self.quantize_embeddings(
+                validation_dataset.embeddings
+            )
+            return train_dataset, validation_dataset
         raise ValueError(f"Test type {test_type} not supported.")
 
     def calculate_dimensions(self):
@@ -294,7 +290,7 @@ class CompressionTester:
             model = SimpleClassifier(
                 in_dim=texshape_in_dim, hidden_dims=[128, 64], out_dim=out_dim
             )
-        elif test_type == TestType.NOISE:
+        elif test_type == TestType.QUANTIZATION:
             model = SimpleClassifier(
                 in_dim=original_in_dim, hidden_dims=[128, 64], out_dim=out_dim
             )
@@ -305,6 +301,45 @@ class CompressionTester:
 
         model.eval()
         return model
+
+    def quantize_embeddings(self, embeddings: torch.Tensor, num_bits=4) -> torch.Tensor:
+        """Quantize the embeddings"""
+        # Find the min and max values in the entire dataset
+        min_value = embeddings.min()
+        max_value = embeddings.max()
+
+        upper_bound = 2**num_bits - 1
+
+        if num_bits == 1:
+            embeddings *= 8
+            return embeddings.round().detach()
+        elif num_bits == 4:
+            quantize_dtype = torch.int8
+        elif num_bits == 8:
+            quantize_dtype = torch.int16
+        elif num_bits == 16:
+            quantize_dtype = torch.int32
+
+        # Normalize to [-1, 1]
+        normalized_embeddings = (
+            2 * (embeddings - min_value) / (max_value - min_value) - 1
+        )
+
+        # Scale and shift to [0, upper_bound]
+        scaled_embeddings = (normalized_embeddings + 1) / 2 * upper_bound
+
+        # Quantize to 4 bits
+        quantized_embeddings = torch.round(scaled_embeddings).to(quantize_dtype)  # pylint: disable=no-member
+
+        # Dequantize
+        dequantized_embeddings = quantized_embeddings.float() / upper_bound * 2 - 1
+
+        # Denormalize
+        denormalized_embeddings: torch.Tensor = (dequantized_embeddings + 1) / 2 * (
+            max_value - min_value
+        ) + min_value
+
+        return denormalized_embeddings.detach()
 
     def encode_embeddings(
         self,
@@ -395,3 +430,17 @@ class CompressionTester:
         roc, auc = get_roc_auc(classifier_model, validation_dataloader, self.device)
         roc = roc[:2]
         return roc, auc
+
+    def save_results(self):
+        """Function for saving the results."""
+        # Save self.test_type_stats to a json file, make it json serializable
+        # test_type_stats = {}
+        # for k, v in self.test_type_stats.items():
+        #     k: TestType
+        #     v0 = v[0].__dict__
+        #     v1 = v[1].__dict__
+        #     k0 = k.value.capitalize()
+        #     test_type_stats[k0] = (v0, v1)
+        save_path = self.encoder_weights_path.parent.parent / "test_type_stats.pkl"
+        with open(save_path, "wb") as f:
+            pickle.dump(self.test_type_stats, f)

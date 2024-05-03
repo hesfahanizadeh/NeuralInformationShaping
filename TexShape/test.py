@@ -56,7 +56,6 @@ def find_experiment_config(
             experiment_date=experiment_date, experiments_dir=experiments_dir
         )
         return experiment_params, experiment_dir
-
     # If experiment_date is not provided,
     # find the experiment with the same params as the test_experiment_config
     if test_config is not None:
@@ -64,11 +63,11 @@ def find_experiment_config(
             config=test_config, experiments_dir=experiments_dir
         )
         return experiment_params, experiment_dir
-
-    raise ValueError(
-        f"Experiment with params {test_config} not found in "
-        f"{experiments_dir} and experiment_date {experiment_date}"
-    )
+    else:
+        raise ValueError(
+            f"Experiment with params {test_config} not found in "
+            f"{experiments_dir} and experiment_date {experiment_date}"
+        )
 
 
 def find_config_in_experiments_by_date(
@@ -143,7 +142,7 @@ def main(config: DictConfig) -> None:
     logging.basicConfig(level=logging.DEBUG)
 
     # Number of epochs for training the test classifiers
-    load_from_epoch: int = 5
+    load_from_epoch: int = 8
 
     # Set the seed and configure the torch backend
     seed: int = 42

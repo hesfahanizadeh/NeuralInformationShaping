@@ -19,19 +19,13 @@ from omegaconf import DictConfig
 # Local imports
 from src.models.models_to_train import Encoder
 from src.models.utils import create_encoder_model
-from src.utils.general import (
-    set_seed,
-    configure_torch_backend,
-)
+from src.utils.general import set_seed, configure_torch_backend, load_dataset
 from src.utils.config import (
     set_include_privacy,
     load_experiment_params,
     ExperimentParams,
 )
-from src.data.utils import (
-    load_train_dataset,
-    configure_dataset_for_experiment_type,
-)
+from src.data.utils import configure_dataset_for_experiment_type
 from src.dual_optimization_encoder import DualOptimizationEncoder
 
 
@@ -64,7 +58,7 @@ def main(config: DictConfig) -> None:
     logging.info(encoder_model)
 
     # Load the dataset
-    dataset, _ = load_train_dataset(
+    dataset, _ = load_dataset(
         dataset_params=experiment_params.dataset_params,
         device=device,
     )

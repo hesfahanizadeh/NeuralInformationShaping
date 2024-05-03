@@ -1,2 +1,3 @@
 dataset_name: "sst2"
-dataset_loc: "data/processed/sst2"
+dataset_loc: "data/processed"
+st_model_name: "all-MiniLM-L12-v2"

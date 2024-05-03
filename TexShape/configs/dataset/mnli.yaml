@@ -1,3 +1,4 @@
 dataset_name: "mnli"
-combination_type: "premise_only" # choices = ["concat", "join", "premise_only"]
-dataset_loc: "./data/processed/mnli"
+combination_type: "concat" # choices = ["concat", "join", "premise_only"]
+dataset_loc: "./data/processed"
+st_model_name: "all-MiniLM-L12-v2"

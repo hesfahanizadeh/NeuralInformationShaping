@@ -1,9 +1,9 @@
 defaults:
   - dataset: mnli
   - encoder: main
-  - simulation: compression
+  - simulation: compression_mnli
 
-device_idx: 4
+device_idx: 3
 
 hydra:
   run:

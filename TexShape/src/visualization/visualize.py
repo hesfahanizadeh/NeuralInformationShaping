@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
-# Creates L2-Norm Plots for the simulations
 def plot_accs(
     accs: list,
     names: list,

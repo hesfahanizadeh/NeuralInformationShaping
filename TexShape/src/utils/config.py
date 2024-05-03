@@ -55,26 +55,33 @@ class MNLICombinationType(Enum):
 
 
 @dataclass
+class MineModel:
+    """Mutual Information Neural Estimation Model."""
+
+    model_name: str
+    model_params: dict
+
+
+@dataclass
 class MineParams:
     """Mutual Information Neural Estimation Parameters."""
 
-    utility_stats_network_model_name: str
-    utility_stats_network_model_params: dict
-    privacy_stats_network_model_name: str
-    privacy_stats_network_model_params: dict
+    utility_stats_network_model: MineModel
+    privacy_stats_network_model: MineModel
     use_prev_epochs_mi_model: bool
     mine_trainer_patience: int
-
     mine_batch_size: int = -1
     mine_epochs_privacy: int = 2000
     mine_epochs_utility: int = 2000
 
 
+@dataclass
 class DatasetParams(ABC):
     """Abstract Dataset Params."""
 
     dataset_loc: Union[Path, str]
     dataset_name: Union[DatasetName, str]
+    st_model_name: str
 
 
 @dataclass
@@ -150,7 +157,7 @@ class ExperimentParams:
     :raises ValueError: If the dataset name is invalid.
     """
 
-    experiment_type: Union[ExperimentType, str]  # "utility+privacy"
+    experiment_type: Union[ExperimentType, str]
     beta: float
     mine_params: Union[MineParams, DictConfig]
     encoder_params: Union[EncoderParams, DictConfig]
@@ -158,7 +165,7 @@ class ExperimentParams:
 
     def __post_init__(self):
         self.experiment_type = ExperimentType(self.experiment_type)
-        self.mine_params = MineParams(**self.mine_params)
+        self.mine_params = configure_mine_params(self.mine_params)
         self.encoder_params = EncoderParams(**self.encoder_params)
 
         dataset_name = self.dataset_params.dataset_name
@@ -192,3 +199,23 @@ def load_experiment_params(config: DictConfig) -> ExperimentParams:
         beta=config.simulation.beta,
     )
     return experiment_params
+
+
+def configure_mine_params(mine_params: DictConfig) -> MineParams:
+    """Configure the mine parameters."""
+    mine_params = MineParams(
+        utility_stats_network_model=MineModel(
+            model_name=mine_params.utility_stats_network_model_name,
+            model_params=mine_params.utility_stats_network_model_params,
+        ),
+        privacy_stats_network_model=MineModel(
+            model_name=mine_params.privacy_stats_network_model_name,
+            model_params=mine_params.privacy_stats_network_model_params,
+        ),
+        use_prev_epochs_mi_model=mine_params.use_prev_epochs_mi_model,
+        mine_trainer_patience=mine_params.mine_trainer_patience,
+        mine_batch_size=mine_params.mine_batch_size,
+        mine_epochs_privacy=mine_params.mine_epochs_privacy,
+        mine_epochs_utility=mine_params.mine_epochs_utility,
+    )
+    return mine_params

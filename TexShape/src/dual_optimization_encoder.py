@@ -444,15 +444,15 @@ class DualOptimizationEncoder(nn.Module):
 
     def _get_utility_stats_network(self) -> MI_CalculatorModel:
         stats_network = create_mi_calculator_model(
-            model_name=self.mine_params.utility_stats_network_model_name,
-            model_params=self.mine_params.utility_stats_network_model_params,
+            model_name=self.mine_params.utility_stats_network_model.model_name,
+            model_params=self.mine_params.utility_stats_network_model.model_params,
         )
         return stats_network
 
     def _get_privacy_stats_network(self) -> MI_CalculatorModel:
         stats_network = create_mi_calculator_model(
-            model_name=self.mine_params.privacy_stats_network_model_name,
-            model_params=self.mine_params.privacy_stats_network_model_params,
+            model_name=self.mine_params.privacy_stats_network_model.model_name,
+            model_params=self.mine_params.privacy_stats_network_model.model_params,
         )
         return stats_network
 
