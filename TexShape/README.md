@@ -1,2 +1,1 @@
-- Fix lightning logs.
-- Make the necessary citation to the corona dataset and kaggle for the preprocessing codes.
+
